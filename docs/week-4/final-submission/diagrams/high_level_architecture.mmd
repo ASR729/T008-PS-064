@@ -1,0 +1,47 @@
+graph TD
+    subgraph CP["Command Processing Layer"]
+    CP1[CommandParser]
+    CP2[CommandProcessor / Dispatcher]
+    CP3[16 Command Handlers]
+    CP4[Output Generators]
+    end
+
+    subgraph SVCS["Business Rule Services"]
+    S1[BedDayCounter]
+    S2[PricingService]
+    S3[TransferService]
+    S4[PackageService]
+    S5[DiscountService]
+    S6[GSTService]
+    S7[DemandService]
+    S8[LedgerService]
+    end
+
+    subgraph DM["Domain Models"]
+    M1[Admission]
+    M2[Bed]
+    M3[Patient]
+    M4[Doctor]
+    M5[ChargeEvent/LedgerEntry]
+    M6[Package]
+    M7[Demand]
+    M8[Rejection]
+    end
+
+    subgraph DL["Data Access Layer"]
+    L1[MasterDataLoader]
+    L2[Master CSV files]
+    end
+
+    CP1 --> CP2 --> CP3
+    CP3 --> SVCS
+    CP3 --> DM
+    CP3 --> CP4
+    SVCS --> DM
+    DM --> L1
+    L1 --> L2
+
+    style CP fill:#e1f5fe,stroke:#0077cc
+    style SVCS fill:#e1f5e1,stroke:#2e7d32
+    style DM fill:#f3e5f5,stroke:#7b1fa2
+    style DL fill:#fff3e0,stroke:#ef6c00

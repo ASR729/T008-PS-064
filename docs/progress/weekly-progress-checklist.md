@@ -5,8 +5,8 @@
 | Week 0 - Baseline and readiness | PASS | docs/week-0/week-0-verification-report.md |
 | Week 1 - Requirements and design | PASS | docs/week-1/week-1-design.md |
 | Week 2 - Core implementation | PASS | Git commit 2c3b306 |
-| Week 3 - Full business rules and validation | IN PROGRESS | docs/week-3/week-3-verification-report.md |
-| Week 4 - Final submission and evaluator materials | NOT STARTED | N/A |
+| Week 3 - Full business rules and validation | PARTIAL | docs/week-3/week-3-verification-report.md |
+| Week 4 - Final submission and evaluator materials | PASS | docs/week-4/final-submission-checklist.md |
 
 ## Week 0 - Baseline and Readiness
 
@@ -33,7 +33,7 @@
 | Domain models implemented | PASS | src/billing_engine/models/__init__.py |
 | Master data loading | PASS | src/billing_engine/loaders/__init__.py |
 | Command framework | PASS | src/billing_engine/commands/__init__.py |
-| ADMIT command handler | PASS | src/billing_engine/commands/__init__.py:259 |
+| ADMIT command handler | PASS | src/billing_engine/commands/__init__.py |
 | Git commit | PASS | 2c3b306 |
 
 ## Week 3 - Full Business Rules and Validation
@@ -67,7 +67,20 @@
 
 | Item | Status | Evidence |
 |------|--------|----------|
-| Output reconciliation | NOT STARTED | Pending |
-| Sample execution | NOT STARTED | Pending |
-| Final packaging | NOT STARTED | Pending |
-| Demo video | NOT STARTED | Pending |
+| Final README and setup guide | PASS | README.md |
+| Final design document | PASS | docs/week-4/final-design-document.md |
+| Rendered diagrams | PASS | docs/week-4/diagrams/ |
+| Final decision log | PASS | docs/week-4/final-decision-log.md |
+| Final test and reconciliation | PARTIAL | scripts/reconcile_outputs.py, 75 tests passing |
+| Final GitHub review | PASS | Commit 5d463d8 pushed, remote verified |
+| Demo script | PASS | docs/week-4/demo-script.md |
+| Demo recording | BLOCKED | Environment cannot record video |
+| Demo recording checklist | PASS | docs/week-4/demo-recording-checklist.md |
+| Viva preparation | PASS | docs/week-4/viva-preparation.md |
+| Live code modification practice | PASS | docs/week-4/live-code-modification-practice.md |
+| Final submission package | PASS | docs/week-4/final-submission-checklist.md |
+| Submission email draft | PASS | docs/week-4/final-submission-email.md |
+| Evidence index | PASS | docs/progress/evidence-index.md |
+| Final commit | PASS | 5d463d8 |
+| Push and remote SHA verified | PASS | 5d463d8 matches remote |
+| Week 4 verification report | PASS | This checklist + docs/week-4/ |

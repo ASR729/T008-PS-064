@@ -1,0 +1,22 @@
+graph TD
+    subgraph "src/billing_engine/"
+    commands["commands/<br/>CommandProcessor, handlers,<br/>output generation"]
+    services["services/<br/>bed-day, pricing, transfers,<br/>packages, discounts, GST,<br/>demands, ledger"]
+    models["models/<br/>Admission, Bed, Doctor,<br/>ChargeEvent, LedgerEntry,<br/>Package, Demand, Rejection"]
+    loaders["loaders/<br/>MasterDataLoader<br/>CSV loading"]
+    billing["billing/<br/>BillingCalculator"]
+    ledger["ledger/<br/>LedgerManager"]
+    outputs["outputs/<br/>OutputGenerator<br/>serializers"]
+    end
+
+    commands <--> services
+    commands <--> models
+    services <--> models
+    models <--> loaders
+    commands --> outputs
+    services --> outputs
+
+    style commands fill:#e1f5fe,stroke:#0077cc
+    style services fill:#e1f5e1,stroke:#2e7d32
+    style models fill:#f3e5f5,stroke:#7b1fa2
+    style loaders fill:#fff3e0,stroke:#ef6c00

@@ -1,0 +1,38 @@
+flowchart TB
+    subgraph External["External Inputs"]
+        CMDS[commands.txt<br/>837 commands]
+        MASTER[Master Data CSV<br/>categories, beds, doctors,<br/>tariffs, packages, admissions]
+    end
+
+    subgraph Engine["PS-064 Billing Engine<br/>(Python, in-memory)"]
+        CP[CommandProcessor<br/>parse · validate · dispatch · execute]
+        SVCS[Business Services<br/>bed-day · pricing · packages ·<br/>discounts · GST · demands · ledger]
+        MODELS[Domain Models<br/>Admission · Bed · LedgerEntry ·<br/>Demand · Package · etc.]
+        LOADER[MasterDataLoader<br/>CSV loading]
+    end
+
+    subgraph Outputs["Generated Outputs<br/>(build/official-sample-run/)"]
+        LEDGER[Patient ledgers ×18]
+        BILL[Final bills ×18]
+        DEMANDS[demands.csv]
+        REJECT[rejections.csv]
+        INTERIM[interim_bills.csv]
+        OCCUP[bed_occupancy ×3]
+    end
+
+    subgraph Verify["Verification<br/>(expected_outputs/)"]
+        RECON[Reconciliation<br/>field-by-field, 42/42]
+    end
+
+    CMDS --> CP
+    MASTER --> LOADER
+    LOADER --> MODELS
+    CP --> SVCS
+    CP --> MODELS
+    SVCS --> MODELS
+    CP --> Outputs
+    Outputs --> RECON
+
+    style Engine fill:#e1f5fe,stroke:#0077cc
+    style Verify fill:#e1f5e1,stroke:#2e7d32
+    style External fill:#fff3e0,stroke:#ef6c00

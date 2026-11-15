@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PS-064 Final Submission Diagrams - Team T008</title>
+    <script src="https://unpkg.com/mermaid@10.9.0/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #555;
+            margin-top: 30px;
+        }
+        .diagram-container {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .mermaid {
+            text-align: center;
+        }
+        .footer {
+            margin-top: 50px;
+            color: #777;
+            font-size: 0.9em;
+        }
+        .note {
+            background: #e3f2fd;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 20px 0;
+            font-size: 0.95em;
+        }
+    </style>
+</head>
+<body>
+    <h1>PS-064 Hospital Inpatient Billing and Bed Management Engine</h1>
+    <h2>Week 4 Final Submission — Rendered Diagrams</h2>
+    <p>Generated from Mermaid source files in <code>docs/week-4/final-submission/diagrams/</code>. Existing Week 4 diagrams remain at <code>docs/week-4/diagrams/</code> (rendered at <code>docs/week-4/diagrams/diagrams.html</code>).</p>
+
+    <div class="note">
+        <strong>Rendering note:</strong> These diagrams render client-side via Mermaid. If Mermaid does not load in your environment, view the Mermaid source files directly (<code>*.mmd</code>). GitHub renders Mermaid code blocks natively in Markdown files.
+    </div>
+
+    <div class="diagram-container">
+        <h2>1. System Context</h2>
+        <div class="mermaid">
+%%{init: {'theme': 'base', 'themeVariables': { 'fontFamily': 'Arial'}}}%%
+flowchart TB
+    subgraph External["External Inputs"]
+        CMDS[commands.txt<br/>837 commands]
+        MASTER[Master Data CSV<br/>categories, beds, doctors,<br/>tariffs, packages, admissions]
+    end
+
+    subgraph Engine["PS-064 Billing Engine<br/>(Python, in-memory)"]
+        CP[CommandProcessor<br/>parse · validate · dispatch · execute]
+        SVCS[Business Services<br/>bed-day · pricing · packages ·<br/>discounts · GST · demands · ledger]
+        MODELS[Domain Models<br/>Admission · Bed · LedgerEntry ·<br/>Demand · Package · etc.]
+        LOADER[MasterDataLoader<br/>CSV loading]
+    end
+
+    subgraph Outputs["Generated Outputs<br/>(build/official-sample-run/)"]
+        LEDGER[Patient ledgers ×18]
+        BILL[Final bills ×18]
+        DEMANDS[demands.csv]
+        REJECT[rejections.csv]
+        INTERIM[interim_bills.csv]
+        OCCUP[bed_occupancy ×3]
+    end
+
+    subgraph Verify["Verification<br/>(expected_outputs/)"]
+        RECON[Reconciliation<br/>field-by-field, 42/42]
+    end
+
+    CMDS --> CP
+    MASTER --> LOADER
+    LOADER --> MODELS
+    CP --> SVCS
+    CP --> MODELS
+    SVCS --> MODELS
+    CP --> Outputs
+    Outputs --> RECON
+
+    style Engine fill:#e1f5fe,stroke:#0077cc
+    style Verify fill:#e1f5e1,stroke:#2e7d32
+    style External fill:#fff3e0,stroke:#ef6c00
+        </div>
+    </div>
+
+    <div class="diagram-container">
+        <h2>2. High-Level Architecture</h2>
+        <div class="mermaid">
+%%{init: {'theme': 'base', 'themeVariables': { 'fontFamily': 'Arial'}}}%%
+graph TD
+    subgraph CP["Command Processing Layer"]
+    CP1[CommandParser]
+    CP2[CommandProcessor / Dispatcher]
+    CP3[16 Command Handlers]
+    CP4[Output Generators]
+    end
+
+    subgraph SVCS["Business Rule Services"]
+    S1[BedDayCounter]
+    S2[PricingService]
+    S3[TransferService]
+    S4[PackageService]
+    S5[DiscountService]
+    S6[GSTService]
+    S7[DemandService]
+    S8[LedgerService]
+    end
+
+    subgraph DM["Domain Models"]
+    M1[Admission]
+    M2[Bed]
+    M3[Patient]
+    M4[Doctor]
+    M5[ChargeEvent/LedgerEntry]
+    M6[Package]
+    M7[Demand]
+    M8[Rejection]
+    end
+
+    subgraph DL["Data Access Layer"]
+    L1[MasterDataLoader]
+    L2[Master CSV files]
+    end
+
+    CP1 --> CP2 --> CP3
+    CP3 --> SVCS
+    CP3 --> DM
+    CP3 --> CP4
+    SVCS --> DM
+    DM --> L1
+    L1 --> L2
+
+    style CP fill:#e1f5fe,stroke:#0077cc
+    style SVCS fill:#e1f5e1,stroke:#2e7d32
+    style DM fill:#f3e5f5,stroke:#7b1fa2
+    style DL fill:#fff3e0,stroke:#ef6c00
+        </div>
+    </div>
+
+    <div class="diagram-container">
+        <h2>3. Package/Module Structure</h2>
+        <div class="mermaid">
+%%{init: {'theme': 'base', 'themeVariables': { 'fontFamily': 'Arial'}}}%%
+graph TD
+    subgraph "src/billing_engine/"
+    commands["commands/<br/>CommandProcessor, handlers,<br/>output generation"]
+    services["services/<br/>bed-day, pricing, transfers,<br/>packages, discounts, GST,<br/>demands, ledger"]
+    models["models/<br/>Admission, Bed, Doctor,<br/>ChargeEvent, LedgerEntry,<br/>Package, Demand, Rejection"]
+    loaders["loaders/<br/>MasterDataLoader<br/>CSV loading"]
+    billing["billing/<br/>BillingCalculator"]
+    ledger["ledger/<br/>LedgerManager"]
+    outputs["outputs/<br/>OutputGenerator<br/>serializers"]
+    end
+
+    commands <--> services
+    commands <--> models
+    services <--> models
+    models <--> loaders
+    commands --> outputs
+    services --> outputs
+
+    style commands fill:#e1f5fe,stroke:#0077cc
+    style services fill:#e1f5e1,stroke:#2e7d32
+    style models fill:#f3e5f5,stroke:#7b1fa2
+    style loaders fill:#fff3e0,stroke:#ef6c00
+        </div>
+    </div>
+
+    <div class="diagram-container">
+        <h2>4. Official Sample Execution and Reconciliation Workflow</h2>
+        <div class="mermaid">
+%%{init: {'theme': 'base', 'themeVariables': { 'fontFamily': 'Arial'}}}%%
+flowchart TB
+    subgraph Input["Input"]
+    CMDS[commands.txt<br/>837 commands]
+    MASTER[Master data CSVs]
+    end
+
+    subgraph Process["Processing"]
+    PARSE[Parse command line]
+    VALIDATE[Validate format &<br/>business rules]
+    BEDDAYS[Process admission<br/>bed days]
+    TIMED[Process timed events<br/>48h demand, reservation]
+    DISPATCH[Dispatch to handler]
+    EXECUTE[Execute handler<br/>state + financial effects]
+    RECORD[Record result / rejection]
+    UPDATE[Update running bill<br/>& demand trigger]
+    end
+
+    subgraph Out["Output"]
+    LEDGERS[Patient ledgers ×18]
+    BILLS[Final bills ×18]
+    DEMANDS[demands.csv]
+    REJECTS[rejections.csv]
+    INTERIM[interim_bills.csv]
+    OCCUP[bed_occupancy ×3]
+    end
+
+    CMDS --> PARSE
+    MASTER --> PARSE
+    PARSE --> VALIDATE
+    VALIDATE --> BEDDAYS
+    BEDDAYS --> TIMED
+    TIMED --> DISPATCH
+    DISPATCH --> EXECUTE
+    EXECUTE --> RECORD
+    RECORD --> UPDATE
+    UPDATE --> LEDGERS
+    UPDATE --> BILLS
+    UPDATE --> DEMANDS
+    UPDATE --> REJECTS
+    UPDATE --> INTERIM
+    UPDATE --> OCCUP
+
+    style Process fill:#e1f5fe,stroke:#0077cc
+    style Out fill:#e1f5e1,stroke:#2e7d32
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Generated for PS-064 Week 4 Final Submission — Team T008</p>
+        <p>Mermaid source files: <code>docs/week-4/final-submission/diagrams/*.mmd</code></p>
+        <p>Existing Week 4 diagrams: <code>docs/week-4/diagrams/*.mmd</code> + <code>docs/week-4/diagrams/diagrams.html</code></p>
+    </div>
+
+    <script>
+        mermaid.initialize({ startOnLoad: true, theme: 'base' });
+    </script>
+</body>
+</html>

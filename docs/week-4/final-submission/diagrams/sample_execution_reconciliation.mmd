@@ -1,0 +1,44 @@
+flowchart TB
+    subgraph Input["Input"]
+    CMDS[commands.txt<br/>837 commands]
+    MASTER[Master data CSVs]
+    end
+
+    subgraph Process["Processing"]
+    PARSE[Parse command line]
+    VALIDATE[Validate format &<br/>business rules]
+    BEDDAYS[Process admission<br/>bed days]
+    TIMED[Process timed events<br/>48h demand, reservation]
+    DISPATCH[Dispatch to handler]
+    EXECUTE[Execute handler<br/>state + financial effects]
+    RECORD[Record result / rejection]
+    UPDATE[Update running bill<br/>& demand trigger]
+    end
+
+    subgraph Out["Output"]
+    LEDGERS[Patient ledgers ×18]
+    BILLS[Final bills ×18]
+    DEMANDS[demands.csv]
+    REJECTS[rejections.csv]
+    INTERIM[interim_bills.csv]
+    OCCUP[bed_occupancy ×3]
+    end
+
+    CMDS --> PARSE
+    MASTER --> PARSE
+    PARSE --> VALIDATE
+    VALIDATE --> BEDDAYS
+    BEDDAYS --> TIMED
+    TIMED --> DISPATCH
+    DISPATCH --> EXECUTE
+    EXECUTE --> RECORD
+    RECORD --> UPDATE
+    UPDATE --> LEDGERS
+    UPDATE --> BILLS
+    UPDATE --> DEMANDS
+    UPDATE --> REJECTS
+    UPDATE --> INTERIM
+    UPDATE --> OCCUP
+
+    style Process fill:#e1f5fe,stroke:#0077cc
+    style Out fill:#e1f5e1,stroke:#2e7d32
