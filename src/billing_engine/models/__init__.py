@@ -193,8 +193,8 @@ class Admission:
     admitting_doctor_id: str
     package_code: Optional[str]
     employee_referral: bool
-    senior: bool = field(init=False)
-    status: str = "ADMITTED"
+    senior: bool = False
+    status: str = "PENDING"
     allocated_category: Optional[Category] = None
     allocated_bed_id: Optional[str] = None
     running_bill: Decimal = Decimal("0.00")
@@ -204,10 +204,20 @@ class Admission:
     discharge_time: Optional[datetime] = None
     planned_discharge: Optional[datetime] = None
     discharge_order_time: Optional[datetime] = None
+    admit_ts: Optional[datetime] = None
+    deposit_timestamp: Optional[datetime] = None
+    charity_pct: Decimal = Decimal("0.00")
+    charity_ceo_ref: Optional[str] = None
+    total_charges: Decimal = Decimal("0.00")
+    total_discounts: Decimal = Decimal("0.00")
+    gst_total: Decimal = Decimal("0.00")
+    final_bill: Decimal = Decimal("0.00")
+    bill_status: Optional[str] = None
+    admission_status: Optional[str] = None
 
     def __post_init__(self):
         """Calculate derived fields."""
-        self.senior = (datetime.now() - self.date_of_birth).days >= 60 * 365
+        pass
 
 @dataclass
 class BedAllocation:
@@ -338,6 +348,7 @@ class InterimBill:
 class LedgerEntry:
     """Individual entry in patient ledger."""
     line_no: int
+    admission_id: str
     event_ts: datetime
     counting_ts: Optional[datetime]
     head: str
@@ -353,6 +364,7 @@ class LedgerEntry:
     gst_amt: Decimal
     net: Decimal
     locked_by_interim: Optional[str]
+    event_id: Optional[str] = None
 
 @dataclass
 class TariffItem:

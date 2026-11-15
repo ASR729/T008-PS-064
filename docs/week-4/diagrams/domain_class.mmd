@@ -1,0 +1,122 @@
+classDiagram
+    class Admission {
+        +str adm_id
+        +str patient_id
+        +str patient_name
+        +Gender gender
+        +datetime date_of_birth
+        +str mobile
+        +str city
+        +Category requested_category
+        +str admitting_doctor_id
+        +str package_code
+        +bool employee_referral
+        +bool senior
+        +str status
+        +Category allocated_category
+        +str allocated_bed_id
+        +datetime admit_ts
+        +datetime discharge_time
+        +Decimal running_bill
+        +Decimal deposits
+        +Decimal balance_due
+        +Decimal final_bill
+    }
+    
+    class Bed {
+        +str bed_id
+        +str ward_id
+        +str ward_name
+        +Category category
+        +Gender gender_restriction
+        +Decimal daily_charge
+        +Decimal nursing_charge
+        +int floor
+        +str status
+        +str adm_id
+        +datetime since_ts
+        +Category billing_category
+        +datetime hold_until
+    }
+    
+    class Doctor {
+        +str doctor_id
+        +str name
+        +str specialty
+        +Decimal visit_fee
+        +bool is_intensivist
+    }
+    
+    class Category {
+        <<enumeration>>
+        GENERAL
+        SEMI_PRIVATE
+        PRIVATE
+        DELUXE
+        ICU
+    }
+    
+    class ChargeEvent {
+        +int line_no
+        +str admission_id
+        +datetime event_ts
+        +datetime counting_ts
+        +str head
+        +str item_code
+        +str description
+        +Category category_at_event
+        +int qty
+        +Decimal base_amount
+        +Decimal multiplier
+        +Decimal gross
+        +Decimal discount_amt
+        +Decimal gst_amt
+        +Decimal net
+    }
+    
+    class Deposit {
+        +str transaction_id
+        +str admission_id
+        +Decimal amount
+        +datetime timestamp
+        +str payment_mode
+    }
+    
+    class Demand {
+        +str demand_id
+        +str admission_id
+        +int seq
+        +datetime demand_ts
+        +Decimal demand_amount
+        +Decimal outstanding
+        +str status
+    }
+    
+    class InterimBill {
+        +str interim_id
+        +str admission_id
+        +datetime interim_ts
+        +str trigger
+        +Decimal gross_total
+        +Decimal running_bill
+        +Decimal balance
+    }
+    
+    class LedgerEntry {
+        +int line_no
+        +str admission_id
+        +datetime event_ts
+        +str head
+        +Decimal net
+        +str locked_by_interim
+    }
+    
+    Admission "1" -- "*" Bed : occupies
+    Admission "1" -- "*" ChargeEvent : generates
+    Admission "1" -- "*" Deposit : pays
+    Admission "1" -- "*" Demand : triggers
+    Admission "1" -- "*" InterimBill : receives
+    Bed "1" -- "*" Admission : hosts
+    Doctor "1" -- "*" ChargeEvent : performs
+    Category "1" -- "*" Bed : defines
+    Category "1" -- "*" ChargeEvent : prices

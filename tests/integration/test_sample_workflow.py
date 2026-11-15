@@ -74,7 +74,7 @@ class TestFullAdmissionWorkflow:
 
         result = processor.process_command(parsed)
         assert result.success is False
-        assert result.error_code == "INVALID_COMMAND"
+        assert result.error_code == "UNKNOWN_COMMAND"
 
     def test_invalid_command_handling(self, loader):
         """Test invalid command is rejected."""

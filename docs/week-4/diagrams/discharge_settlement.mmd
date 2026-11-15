@@ -1,0 +1,18 @@
+flowchart TD
+    A[DISCHARGE Command] --> B[Post Discharge Bed-Day]
+    B --> C[Release Bed to Housekeeping]
+    C --> D[Calculate Final Bill]
+    D --> E[Charges - Discounts - Deposits]
+    E --> F[Round Half-Up to Rupee]
+    F --> G{Balance Due?}
+    G -->|Yes| H[DISCHARGE_PENDING_PAYMENT]
+    G -->|No| I{Refund Due?}
+    I -->|Yes| J[REFUND_DUE]
+    I -->|No| K[SETTLED]
+    H --> S[Discharge Blocked - Payment Required]
+    J --> T[DISCHARGED - Refund Obligation]
+    K --> T
+    T --> U[Close Open Demands]
+    U --> V[Lift Procedure Block]
+    V --> W[HOUSEKEEPING_CLEARED]
+    W --> X[Bed Available]

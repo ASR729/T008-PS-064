@@ -1,0 +1,18 @@
+stateDiagram-v2
+    [*] --> PENDING
+    PENDING --> ADMITTED : ADMIT (sufficient deposit)
+    ADMITTED --> ADMITTED : TRANSFER (category change)
+    ADMITTED --> ADMITTED : STEP_DOWN (ICU exit)
+    ADMITTED --> DISCHARGED : DISCHARGE
+    DISCHARGED --> [*] : settlement complete
+    
+    state "Bed Available" as AVAILABLE
+    state "Bed Reserved" as RESERVED
+    state "Bed Occupied" as OCCUPIED
+    state "Bed Housekeeping" as HOUSEKEEPING
+    
+    AVAILABLE --> RESERVED : RESERVE_BED
+    RESERVED --> AVAILABLE : 6-hour expiry
+    RESERVED --> OCCUPIED : ADMIT
+    OCCUPIED --> HOUSEKEEPING : DISCHARGE
+    HOUSEKEEPING --> AVAILABLE : HOUSEKEEPING_CLEARED

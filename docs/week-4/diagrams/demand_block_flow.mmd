@@ -1,0 +1,20 @@
+flowchart TD
+    A[Admission Deposit] --> B[Charge Accumulation]
+    B --> C{Bill > 80% Deposits?}
+    C -->|Yes| D[Create First Demand]
+    C -->|No| E[Continue Processing]
+    D --> F{48-Hour Deadline?}
+    F -->|Bill > 80%| G[Create Second Demand]
+    F -->|Bill <= 80%| H[Demand Lapsed]
+    G --> I[Activate Procedure Block]
+    I --> J{Procedure Command?}
+    J -->|Emergency| K[Allow Procedure]
+    J -->|Non-Emergency| L[Reject TOPUP_BLOCK]
+    K --> M[Continue Processing]
+    L --> M
+    J2[Deposit Payment] --> N{Demand Satisfied?}
+    N -->|Yes| O[Close Demand]
+    N -->|No| P[Reduce Outstanding]
+    O --> Q{Lift Procedure Block?}
+    Q -->|All demands closed| R[Block Lifted]
+    Q -->|Open demands remain| S[Block Continues]

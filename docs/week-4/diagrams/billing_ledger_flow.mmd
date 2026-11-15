@@ -1,0 +1,14 @@
+flowchart TD
+    A[Charge Event] --> B[Category-at-Evt Pricing]
+    B --> C[Apply Multiplier]
+    C --> D[Apply Discounts]
+    D --> E[Calculate GST]
+    E --> F[Net Amount]
+    F --> G[Ledger Entry]
+    G --> H[Update Running Bill]
+    H --> I[Check Demand Trigger]
+    I -->|Bill > 80%| J[Create Demand]
+    I -->|Bill <= 80%| K[No Demand]
+    J --> L[Record Demand]
+    K --> M[Continue Processing]
+    L --> M

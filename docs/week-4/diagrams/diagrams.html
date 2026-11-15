@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PS-064 Diagrams - Week 4</title>
+    <script src="https://unpkg.com/mermaid@10.9.0/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #555;
+            margin-top: 30px;
+        }
+        .diagram-container {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .mermaid {
+            text-align: center;
+        }
+        .footer {
+            margin-top: 50px;
+            color: #777;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <h1>PS-064 Hospital Inpatient Billing and Bed Management Engine</h1>
+    <h2>Week 4 — Rendered Diagrams</h2>
+    <p>Generated from Mermaid source files in <code>docs/week-4/diagrams/</code></p>
+
+    <div class="diagram-container">
+        <h2>1. Domain/Class Diagram</h2>
+        <div class="mermaid">
+%%{init: {'theme': 'base', 'themeVariables': { 'fontFamily': 'Arial'}}}%%
+classDiagram
+    class Admission {
+        +str adm_id
+        +str patient_id
+        +str patient_name
+        +Gender gender
+        +datetime date_of_birth
+        +str mobile
+        +str city
+        +Category requested_category
+        +str admitting_doctor_id
+        +str package_code
+        +bool employee_referral
+        +bool senior
+        +str status
+        +Category allocated_category
+        +str allocated_bed_id
+        +datetime admit_ts
+        +datetime discharge_time
+        +Decimal running_bill
+        +Decimal deposits
+        +Decimal balance_due
+        +Decimal final_bill
+    }
+    
+    class Bed {
+        +str bed_id
+        +str ward_id
+        +str ward_name
+        +Category category
+        +Gender gender_restriction
+        +Decimal daily_charge
+        +Decimal nursing_charge
+        +int floor
+        +str status
+        +str adm_id
+        +datetime since_ts
+        +Category billing_category
+        +datetime hold_until
+    }
+    
+    class Doctor {
+        +str doctor_id
+        +str name
+        +str specialty
+        +Decimal visit_fee
+        +bool is_intensivist
+    }
+    
+    class Category {
+        <<enumeration>>
+        GENERAL
+        SEMI_PRIVATE
+        PRIVATE
+        DELUXE
+        ICU
+    }
+    
+    class ChargeEvent {
+        +int line_no
+        +str admission_id
+        +datetime event_ts
+        +datetime counting_ts
+        +str head
+        +str item_code
+        +str description
+        +Category category_at_event
+        +int qty
+        +Decimal base_amount
+        +Decimal multiplier
+        +Decimal gross
+        +Decimal discount_amt
+        +Decimal gst_amt
+        +Decimal net
+    }
+    
+    class Deposit {
+        +str transaction_id
+        +str admission_id
+        +Decimal amount
+        +datetime timestamp
+        +str payment_mode
+    }
+    
+    class Demand {
+        +str demand_id
+        +str admission_id
+        +int seq
+        +datetime demand_ts
+        +Decimal demand_amount
+        +Decimal outstanding
+        +str status
+    }
+    
+    class InterimBill {
+        +str interim_id
+        +str admission_id
+        +datetime interim_ts
+        +str trigger
+        +Decimal gross_total
+        +Decimal running_bill
+        +Decimal balance
+    }
+    
+    class LedgerEntry {
+        +int line_no
+        +str admission_id
+        +datetime event_ts
+        +str head
+        +Decimal net
+        +str locked_by_interim
+    }
+    
+    Admission "1" -- "*" Bed : occupies
+    Admission "1" -- "*" ChargeEvent : generates
+    Admission "1" -- "*" Deposit : pays
+    Admission "1" -- "*" Demand : triggers
+    Admission "1" -- "*" InterimBill : receives
+    Bed "1" -- "*" Admission : hosts
+    Doctor "1" -- "*" ChargeEvent : performs
+    Category "1" -- "*" Bed : defines
+    Category "1" -- "*" ChargeEvent : prices
+        </div>
+    </div>
+
+    <div class="diagram-container">
+        <h2>2. Patient/Admission Lifecycle</h2>
+        <div class="mermaid">
+stateDiagram-v2
+    [*] --> PENDING
+    PENDING --> ADMITTED : ADMIT (sufficient deposit)
+    ADMITTED --> ADMITTED : TRANSFER (category change)
+    ADMITTED --> ADMITTED : STEP_DOWN (ICU exit)
+    ADMITTED --> DISCHARGED : DISCHARGE
+    DISCHARGED --> [*] : settlement complete
+    
+    state "Bed Available" as AVAILABLE
+    state "Bed Reserved" as RESERVED
+    state "Bed Occupied" as OCCUPIED
+    state "Bed Housekeeping" as HOUSEKEEPING
+    
+    AVAILABLE --> RESERVED : RESERVE_BED
+    RESERVED --> AVAILABLE : 6-hour expiry
+    RESERVED --> OCCUPIED : ADMIT
+    OCCUPIED --> HOUSEKEEPING : DISCHARGE
+    HOUSEKEEPING --> AVAILABLE : HOUSEKEEPING_CLEARED
+        </div>
+    </div>
+
+    <div class="diagram-container">
+        <h2>3. Bed Lifecycle</h2>
+        <div class="mermaid">
+stateDiagram-v2
+    [*] --> AVAILABLE
+    AVAILABLE --> RESERVED : RESERVE_BED
+    RESERVED --> AVAILABLE : 6-hour expiry
+    RESERVED --> OCCUPIED : ADMIT (use reservation)
+    OCCUPIED --> HOUSEKEEPING : DISCHARGE
+    HOUSEKEEPING --> AVAILABLE : HOUSEKEEPING_CLEARED
+    OCCUPIED --> OCCUPIED : TRANSFER (change bed)
+    OCCUPIED --> OCCUPIED : STEP_DOWN (ICU exit)
+        </div>
+    </div>
+
+    <div class="diagram-container">
+        <h2>4. Command-Processing Workflow</h2>
+        <div class="mermaid">
+sequenceDiagram
+    participant C as Command File
+    participant CP as Command Processor
+    participant BS as Bed-Day Service
+    participant PS as Pricing Service
+    participant DS as Demand Service
+    participant LE as Ledger Entry
+    
+    C->>CP: PARSE (COMMAND\|ts\|args)
+    CP->>CP: Validate timestamp order
+    CP->>BS: Check bed days (per admission)
+    BS-->>CP: Post BED/NURSING lines
+    CP->>PS: Calculate charge (category-at-event)
+    PS-->>CP: Return gross, multiplier
+    CP->>DS: Check demand trigger (>80% deposits)
+    DS-->>CP: Return demand or None
+    CP->>LE: Create ledger entry
+    LE-->>CP: Return line_no
+    CP-->>C: Command result (success/rejection)
+        </div>
+    </div>
+
+    <div class="diagram-container">
+        <h2>5. Billing and Ledger Flow</h2>
+        <div class="mermaid">
+flowchart TD
+    A[Charge Event] --> B[Category-at-Evt Pricing]
+    B --> C[Apply Multiplier]
+    C --> D[Apply Discounts]
+    D --> E[Calculate GST]
+    E --> F[Net Amount]
+    F --> G[Ledger Entry]
+    G --> H[Update Running Bill]
+    H --> I[Check Demand Trigger]
+    I -->|Bill > 80%| J[Create Demand]
+    I -->|Bill <= 80%| K[No Demand]
+    J --> L[Record Demand]
+    K --> M[Continue Processing]
+    L --> M
+        </div>
+    </div>
+
+    <div class="diagram-container">
+        <h2>6. Package Conversion and Repricing Flow</h2>
+        <div class="mermaid">
+flowchart TD
+    A[Package Enrollment] --> B[ICU Stay Tracking]
+    B --> C{ICU > 48 hours?}
+    C -->|Yes| D[Trigger Conversion]
+    C -->|No| E{Non-Included Procedure?}
+    E -->|Yes| D
+    E -->|No| F[Continue Package]
+    D --> G[Retroactive Repricing]
+    G --> H[Generate REPRICE Lines]
+    H --> I[Preserve Original Charges]
+    I --> J[Itemized Billing After Conversion]
+        </div>
+    </div>
+
+    <div class="diagram-container">
+        <h2>7. Deposit/Top-Up Demand and Procedure-Blocking Flow</h2>
+        <div class="mermaid">
+flowchart TD
+    A[Admission Deposit] --> B[Charge Accumulation]
+    B --> C{Bill > 80% Deposits?}
+    C -->|Yes| D[Create First Demand]
+    C -->|No| E[Continue Processing]
+    D --> F{48-Hour Deadline?}
+    F -->|Bill > 80%| G[Create Second Demand]
+    F -->|Bill <= 80%| H[Demand Lapsed]
+    G --> I[Activate Procedure Block]
+    I --> J{Procedure Command?}
+    J -->|Emergency| K[Allow Procedure]
+    J -->|Non-Emergency| L[Reject TOPUP_BLOCK]
+    K --> M[Continue Processing]
+    L --> M
+    J2[Deposit Payment] --> N{Demand Satisfied?}
+    N -->|Yes| O[Close Demand]
+    N -->|No| P[Reduce Outstanding]
+    O --> Q{Lift Procedure Block?}
+    Q -->|All demands closed| R[Block Lifted]
+    Q -->|Open demands remain| S[Block Continues]
+        </div>
+    </div>
+
+    <div class="diagram-container">
+        <h2>8. Final Discharge and Settlement Flow</h2>
+        <div class="mermaid">
+flowchart TD
+    A[DISCHARGE Command] --> B[Post Discharge Bed-Day]
+    B --> C[Release Bed to Housekeeping]
+    C --> D[Calculate Final Bill]
+    D --> E[Charges - Discounts - Deposits]
+    E --> F[Round Half-Up to Rupee]
+    F --> G{Balance Due?}
+    G -->|Yes| H[DISCHARGE_PENDING_PAYMENT]
+    G -->|No| I{Refund Due?}
+    I -->|Yes| J[REFUND_DUE]
+    I -->|No| K[SETTLED]
+    H --> S[Discharge Blocked - Payment Required]
+    J --> T[DISCHARGED - Refund Obligation]
+    K --> T
+    T --> U[Close Open Demands]
+    U --> V[Lift Procedure Block]
+    V --> W[HOUSEKEEPING_CLEARED]
+    W --> X[Bed Available]
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Generated for PS-064 Week 4 Final Submission — Team T008</p>
+        <p>Mermaid source files: <code>docs/week-4/diagrams/*.mmd</code></p>
+    </div>
+
+    <script>
+        mermaid.initialize({ startOnLoad: true, theme: 'base' });
+    </script>
+</body>
+</html>

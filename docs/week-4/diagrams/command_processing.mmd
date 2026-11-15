@@ -1,0 +1,19 @@
+sequenceDiagram
+    participant C as Command File
+    participant CP as Command Processor
+    participant BS as Bed-Day Service
+    participant PS as Pricing Service
+    participant DS as Demand Service
+    participant LE as Ledger Entry
+    
+    C->>CP: PARSE (COMMAND\|ts\|args)
+    CP->>CP: Validate timestamp order
+    CP->>BS: Check bed days (per admission)
+    BS-->>CP: Post BED/NURSING lines
+    CP->>PS: Calculate charge (category-at-event)
+    PS-->>CP: Return gross, multiplier
+    CP->>DS: Check demand trigger (>80% deposits)
+    DS-->>CP: Return demand or None
+    CP->>LE: Create ledger entry
+    LE-->>CP: Return line_no
+    CP-->>C: Command result (success/rejection)

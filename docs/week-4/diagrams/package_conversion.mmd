@@ -1,0 +1,11 @@
+flowchart TD
+    A[Package Enrollment] --> B[ICU Stay Tracking]
+    B --> C{ICU > 48 hours?}
+    C -->|Yes| D[Trigger Conversion]
+    C -->|No| E{Non-Included Procedure?}
+    E -->|Yes| D
+    E -->|No| F[Continue Package]
+    D --> G[Retroactive Repricing]
+    G --> H[Generate REPRICE Lines]
+    H --> I[Preserve Original Charges]
+    I --> J[Itemized Billing After Conversion]
