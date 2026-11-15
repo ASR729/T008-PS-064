@@ -140,6 +140,8 @@ class CommandProcessor:
         self._upgrade_free_start: Dict[str, datetime] = {}
         self._package_converted: Set[str] = set()
         self._charity_applied: Set[str] = set()
+        # Admissions for which the discharge-day extra bed day was already posted.
+        self._discharge_extra_posted: Set[str] = set()
         self._last_timestamp: Optional[datetime] = None
         self._processed_event_ids: Set[str] = set()
 
@@ -153,9 +155,17 @@ class CommandProcessor:
         # Track automatic interim bill days
         self._auto_interim_days: Dict[str, Set[int]] = {}
 
+        # Bed occupancy periods per admission: list of [start_ts, end_ts_or_None, category]
+        # Used to determine the category actually occupied at any timestamp.
+        self._bed_periods: Dict[str, List[List]] = {}
+
         # Occupancy snapshots at specific timestamps
         self._occupancy_snapshot_times: Set[datetime] = set()
         self._occupancy_snapshots: Dict[datetime, Dict[str, Bed]] = {}
+        # Times at which snapshots have been captured
+        self._occupancy_snapshot_captured: Set[datetime] = set()
+        # Timestamp of the last fully processed command
+        self._last_command_time: Optional[datetime] = None
 
     # =========================================================================
     # PARSING
@@ -204,34 +214,44 @@ class CommandProcessor:
     def process_timed_events(self, current_time: datetime):
         """Process internal timed events before a command at current_time.
         Order: 48-hour demand deadline, reservation release, 7-day interim bill.
-        (Bed-day counting moved to finalize() for correct discharge handling.)"""
+        (Bed-day counting is done per-admission in process_command so that the
+        demand deadline at the same instant sees the running bill without the
+        same-instant bed day.)"""
         self._process_48h_demand_deadline(current_time)
         self._process_reservation_releases(current_time)
         self._process_7day_interim_bills(current_time)
-        self._capture_occupancy_snapshot(current_time)
 
-    def _capture_occupancy_snapshot(self, current_time: datetime):
-        """Capture bed occupancy snapshot at specified timestamps."""
-        if current_time in self._occupancy_snapshot_times:
-            # Deep copy bed states
-            snapshot = {}
-            for bed_id, bed in self.loader.beds.items():
-                snapshot[bed_id] = Bed(
-                    bed_id=bed.bed_id,
-                    ward_id=bed.ward_id,
-                    ward_name=bed.ward_name,
-                    category=bed.category,
-                    gender_restriction=bed.gender_restriction,
-                    daily_bed_charge=bed.daily_bed_charge,
-                    nursing_charge=bed.nursing_charge,
-                    floor=bed.floor,
-                    status=bed.status,
-                    adm_id=bed.adm_id,
-                    since_ts=bed.since_ts,
-                    billing_category=bed.billing_category,
-                    hold_until=bed.hold_until,
-                )
-            self._occupancy_snapshots[current_time] = snapshot
+    def _capture_occupancy_snapshot(self, snapshot_time: datetime):
+        """Capture bed occupancy snapshot at a specified timestamp.
+
+        Reservation releases up to snapshot_time are applied first so the
+        captured state reflects all bed-state changes at or before the
+        snapshot instant.
+        """
+        if snapshot_time not in self._occupancy_snapshot_times:
+            return
+        if snapshot_time in self._occupancy_snapshot_captured:
+            return
+        # Deep copy bed states
+        snapshot = {}
+        for bed_id, bed in self.loader.beds.items():
+            snapshot[bed_id] = Bed(
+                bed_id=bed.bed_id,
+                ward_id=bed.ward_id,
+                ward_name=bed.ward_name,
+                category=bed.category,
+                gender_restriction=bed.gender_restriction,
+                daily_bed_charge=bed.daily_bed_charge,
+                nursing_charge=bed.nursing_charge,
+                floor=bed.floor,
+                status=bed.status,
+                adm_id=bed.adm_id,
+                since_ts=bed.since_ts,
+                billing_category=bed.billing_category,
+                hold_until=bed.hold_until,
+            )
+        self._occupancy_snapshots[snapshot_time] = snapshot
+        self._occupancy_snapshot_captured.add(snapshot_time)
 
     def _process_48h_demand_deadline(self, current_time: datetime):
         """Check if any open demand has reached the 48-hour deadline.
@@ -407,26 +427,21 @@ class CommandProcessor:
             noon_anchor = datetime.combine(current_date, datetime.min.time().replace(hour=self.NOON_HOUR))
             icu_anchor = datetime.combine(current_date, datetime.min.time().replace(hour=self.ICU_HOUR))
 
-            # Anchor must have passed relative to current_time
-            anchor_passed = noon_anchor <= current_time or icu_anchor <= current_time
-
-            if not anchor_passed:
-                current_date += timedelta(days=1)
-                continue
-
-            occupying_noon = self._is_occupying_at(adm_id, noon_anchor)
-            occupying_icu = self._is_occupying_at(adm_id, icu_anchor)
-
-            if not occupying_noon and not occupying_icu:
-                current_date += timedelta(days=1)
-                continue
-
-            if occupying_icu:
+            # Determine the counting anchor:
+            #   ICU at 08:00  -> day counted at 08:00 as an ICU day
+            #   otherwise     -> day counted at noon at the category occupied at noon
+            if icu_anchor <= current_time and self._occupied_category_at(adm_id, icu_anchor) == Category.ICU:
                 check_time = icu_anchor
                 category_at_anchor = Category.ICU
-            else:
+            elif noon_anchor <= current_time:
+                category_at_anchor = self._occupied_category_at(adm_id, noon_anchor)
+                if category_at_anchor is None:
+                    current_date += timedelta(days=1)
+                    continue
                 check_time = noon_anchor
-                category_at_anchor = self._get_category_at_time(adm_id, noon_anchor)
+            else:
+                current_date += timedelta(days=1)
+                continue
 
             self._post_bed_day_lines(adm_id, current_date, check_time, category_at_anchor)
             counted_dates.add(current_date)
@@ -470,29 +485,41 @@ class CommandProcessor:
     # BED-DAY COUNTING
     # =========================================================================
 
+    def _open_bed_period(self, adm_id: str, start_ts: datetime, category: Category) -> None:
+        """Record a bed occupancy period for an admission."""
+        self._bed_periods.setdefault(adm_id, []).append([start_ts, None, category])
+
+    def _close_open_bed_period(self, adm_id: str, end_ts: datetime) -> None:
+        """Close the currently-open bed period for an admission at end_ts."""
+        for period in self._bed_periods.get(adm_id, []):
+            if period[1] is None:
+                period[1] = end_ts
+                break
+
+    def _occupied_category_at(self, adm_id: str, timestamp: datetime):
+        """Return the category of the bed occupied at timestamp, or None if not occupying.
+
+        Occupancy rule: admitted strictly before timestamp, and not discharged
+        (discharge at exactly timestamp still counts as occupying).
+        """
+        for start, end, cat in self._bed_periods.get(adm_id, []):
+            if start < timestamp and (end is None or timestamp <= end):
+                return cat
+        return None
+
     def _is_occupying_at(self, adm_id: str, timestamp: datetime) -> bool:
         """Check if a patient occupies a bed at a given timestamp."""
-        admission = self.loader.admissions.get(adm_id)
-        if admission is None:
-            return False
-
-        admit_time = admission.admit_ts
-        discharge_time = admission.discharge_time
-
-        if timestamp < admit_time:
-            return False
-        if discharge_time and timestamp >= discharge_time:
-            return False
-        return True
+        return self._occupied_category_at(adm_id, timestamp) is not None
 
     def _get_category_at_time(self, adm_id: str, timestamp: datetime) -> Category:
         """Get the category of the bed occupied by a patient at a given time."""
         admission = self.loader.admissions.get(adm_id)
         if admission is None:
             return Category.GENERAL
-
-        allocated_category = admission.allocated_category or admission.requested_category
-        return allocated_category
+        cat = self._occupied_category_at(adm_id, timestamp)
+        if cat is not None:
+            return cat
+        return admission.allocated_category or admission.requested_category
 
     def _post_bed_day_lines(self, adm_id: str, count_date: date,
                             counting_time: datetime, category: Category):
@@ -508,90 +535,151 @@ class CommandProcessor:
             if counting_time <= window_end:
                 upgrade_free = True
 
+        package = self._package_for(admission)
+        bed_day_number = self._bed_day_number(adm_id, count_date)
+
         # Determine rate category
-        rate_category = admission.requested_category if upgrade_free else category
+        if (package is not None and admission.adm_id not in self._package_converted
+                and bed_day_number > package.los_days):
+            # Beyond LOS: billed at package category rate
+            rate_category = package.package_category
+        else:
+            rate_category = admission.requested_category if upgrade_free else category
 
         # Calculate charges
         bed_rate = rate_category.daily_charge
         nursing_rate = rate_category.nursing_charge
+        bed_item_code = f"BED-{category.value}"
+        nurs_item_code = f"NUR-{category.value}"
 
-        # Apply senior discount (BR-08)
+        # Package coverage (BR-06): covered within LOS (ICU rounds always covered)
+        covered = False
+        if package is not None and admission.adm_id not in self._package_converted:
+            is_icu = bed_item_code.startswith("BED-ICU") or nurs_item_code.startswith("NUR-ICU")
+            if is_icu or bed_day_number <= package.los_days:
+                covered = True
+
+        def _covered_line(gross_amount, discount_pct_val, gst_amount, desc):
+            return {
+                'base_amount': Decimal("0.00"),
+                'multiplier': Decimal("1.00"),
+                'gross': Decimal("0.00"),
+                'discount_pct': Decimal("0.00"),
+                'discount_amt': Decimal("0.00"),
+                'gst_amt': Decimal("0.00"),
+                'net': Decimal("0.00"),
+                'description': desc,
+            }
+
+        # Post BED line
         bed_gross, bed_discount_pct, bed_discount_amt = self._apply_senior_discount(
             admission, bed_rate, "BED"
         )
-        nursing_gross, nursing_discount_pct, nursing_discount_amt = self._apply_senior_discount(
-            admission, nursing_rate, "NURSING"
-        )
-
-        # Calculate GST on BED line (BR-11)
-        bed_gst_amt = Decimal("0.00")
         bed_taxable = bed_gross - bed_discount_amt
+        bed_gst_amt = Decimal("0.00")
         if bed_taxable > self.GST_THRESHOLD:
             bed_gst_amt = round2(bed_taxable * self.GST_RATE / Decimal("100"))
-
-        # Nursing has no GST
-        nursing_gst_amt = Decimal("0.00")
-
-        # Net amounts
         bed_net = round2(bed_gross - bed_discount_amt + bed_gst_amt)
-        nursing_net = round2(nursing_gross - nursing_discount_amt + nursing_gst_amt)
 
-        # Post BED line
+        if covered:
+            bed_entry = _covered_line(
+                bed_rate, Decimal("0.00"), Decimal("0.00"),
+                f"[PKG-{package.package_code}] day {bed_day_number} noon {admission.allocated_bed_id}")
+        else:
+            bed_entry = {
+                'base_amount': bed_rate,
+                'multiplier': Decimal("1.00"),
+                'gross': bed_gross,
+                'discount_pct': bed_discount_pct,
+                'discount_amt': bed_discount_amt,
+                'gst_amt': bed_gst_amt,
+                'net': bed_net,
+                'description': f"bed day {bed_day_number} noon {admission.allocated_bed_id}",
+            }
+
         self._add_ledger_entry(
             admission_id=adm_id,
             timestamp=counting_time,
             counting_ts=counting_time,
             head="BED",
-            item_code=f"BED-{rate_category.value}",
-            description=f"bed day {self._bed_day_number(adm_id, count_date)} noon",
-            category_at_event=rate_category,
+            item_code=f"BED-{category.value}",
+            description=bed_entry['description'],
+            category_at_event=category,
             qty=1,
-            base_amount=bed_rate,
-            multiplier=Decimal("1.00"),
-            gross=bed_gross,
-            discount_pct=bed_discount_pct,
-            discount_amt=bed_discount_amt,
-            gst_amt=bed_gst_amt,
-            net=bed_net,
+            base_amount=bed_entry['base_amount'],
+            multiplier=bed_entry['multiplier'],
+            gross=bed_entry['gross'],
+            discount_pct=bed_entry['discount_pct'],
+            discount_amt=bed_entry['discount_amt'],
+            gst_amt=bed_entry['gst_amt'],
+            net=bed_entry['net'],
         )
 
         # Post NURSING line
+        nursing_gross, nursing_discount_pct, nursing_discount_amt = self._apply_senior_discount(
+            admission, nursing_rate, "NURSING"
+        )
+        nursing_net = round2(nursing_gross - nursing_discount_amt)
+
+        if covered:
+            nurs_entry = _covered_line(
+                nursing_rate, Decimal("0.00"), Decimal("0.00"),
+                f"[PKG-{package.package_code}] day {bed_day_number}")
+        else:
+            nurs_entry = {
+                'base_amount': nursing_rate,
+                'multiplier': Decimal("1.00"),
+                'gross': nursing_gross,
+                'discount_pct': nursing_discount_pct,
+                'discount_amt': nursing_discount_amt,
+                'gst_amt': Decimal("0.00"),
+                'net': nursing_net,
+                'description': f"nursing day {bed_day_number}",
+            }
+
         self._add_ledger_entry(
             admission_id=adm_id,
             timestamp=counting_time,
             counting_ts=counting_time,
             head="NURSING",
-            item_code=f"NUR-{rate_category.value}",
-            description=f"nursing day {self._bed_day_number(adm_id, count_date)}",
-            category_at_event=rate_category,
+            item_code=f"NUR-{category.value}",
+            description=nurs_entry['description'],
+            category_at_event=category,
             qty=1,
-            base_amount=nursing_rate,
-            multiplier=Decimal("1.00"),
-            gross=nursing_gross,
-            discount_pct=nursing_discount_pct,
-            discount_amt=nursing_discount_amt,
-            gst_amt=nursing_gst_amt,
-            net=nursing_net,
+            base_amount=nurs_entry['base_amount'],
+            multiplier=nurs_entry['multiplier'],
+            gross=nurs_entry['gross'],
+            discount_pct=nurs_entry['discount_pct'],
+            discount_amt=nurs_entry['discount_amt'],
+            gst_amt=nurs_entry['gst_amt'],
+            net=nurs_entry['net'],
         )
 
         # ICU rounds for ICU days
         if category == Category.ICU:
+            icu_desc = f"ICU round day {bed_day_number}"
+            icu_gross = self.ICU_ROUND_FEE
+            icu_net = self.ICU_ROUND_FEE
+            if covered:
+                icu_gross = Decimal("0.00")
+                icu_net = Decimal("0.00")
+                icu_desc = f"[PKG-{package.package_code}] day {bed_day_number}"
             self._add_ledger_entry(
                 admission_id=adm_id,
                 timestamp=counting_time,
                 counting_ts=counting_time,
                 head="DOCTOR",
                 item_code="ICU-ROUNDS",
-                description=f"ICU round day {self._bed_day_number(adm_id, count_date)}",
+                description=icu_desc,
                 category_at_event=category,
                 qty=1,
                 base_amount=self.ICU_ROUND_FEE,
                 multiplier=Decimal("1.00"),
-                gross=self.ICU_ROUND_FEE,
+                gross=icu_gross,
                 discount_pct=Decimal("0.00"),
                 discount_amt=Decimal("0.00"),
                 gst_amt=Decimal("0.00"),
-                net=self.ICU_ROUND_FEE,
+                net=icu_net,
             )
 
     def _bed_day_number(self, adm_id: str, count_date: date) -> int:
@@ -618,12 +706,32 @@ class CommandProcessor:
         self._admission_line_counters[admission_id] = self._admission_line_counters.get(admission_id, 0) + 1
         line_no = self._admission_line_counters[admission_id]
 
-        # Round all monetary values
-        base_amount = round2(base_amount)
-        gross = round2(gross)
-        discount_amt = round2(discount_amt)
-        gst_amt = round2(gst_amt)
-        net = round2(net)
+        # Package coverage for non-bed-day lines (BR-06).
+        # Bed-day coverage is handled in _post_bed_day_lines (needs bed-day number/LOS).
+        admission = self.loader.admissions.get(admission_id)
+        package = self._package_for(admission) if admission else None
+        if (package is not None and admission is not None
+                and admission.adm_id not in self._package_converted
+                and head not in ("BED", "NURSING", "PACKAGE", "REPRICE", "ADJ")
+                and self._package_covered(admission, package, head, item_code, None)):
+            base_amount = Decimal("0.00")
+            gross = Decimal("0.00")
+            discount_pct = Decimal("0.00")
+            discount_amt = Decimal("0.00")
+            gst_amt = Decimal("0.00")
+            net = Decimal("0.00")
+            description = f"[PKG-{package.package_code}]"
+
+        # Round all monetary values (normalize negative zero to positive zero)
+        def _norm(v):
+            v = round2(v)
+            return Decimal("0") if v == 0 else v
+
+        base_amount = _norm(base_amount)
+        gross = _norm(gross)
+        discount_amt = _norm(discount_amt)
+        gst_amt = _norm(gst_amt)
+        net = _norm(net)
 
         entry = LedgerEntry(
             line_no=line_no,
@@ -652,14 +760,15 @@ class CommandProcessor:
         if admission:
             admission.running_bill = round2(admission.running_bill + net)
 
-        # Record charge event for demand calculation
-        self.demand_service.record_charge_event(
-            admission_id, net, timestamp, head
-        )
+        # Record charge event for demand calculation (BR-07a: only non-zero-net lines count as charge days)
+        if net != Decimal("0.00"):
+            self.demand_service.record_charge_event(
+                admission_id, net, timestamp, head
+            )
 
         # Check BR-07b demand trigger (after every posted line except DISCHARGE lines)
         if not skip_demand_check:
-            self._check_demand_trigger(admission_id, timestamp, self._line_counter)
+            self._check_demand_trigger(admission_id, timestamp, line_no)
 
         return self._line_counter
 
@@ -724,13 +833,13 @@ class CommandProcessor:
         discounted = amount
 
         if admission.senior and charge_head in ("BED", "NURSING"):
-            discounted, disc_amt = self.discount_service.apply_senior_discount(
+            _, disc_amt = self.discount_service.apply_senior_discount(
                 amount, 60, charge_head
             )
             discount_amt = disc_amt
             discount_pct = Decimal("10.00")
 
-        return discounted, discount_pct, discount_amt
+        return amount, discount_pct, discount_amt
 
     def _apply_employee_discount(self, admission: Admission, amount: Decimal,
                                   charge_head: str) -> Tuple[Decimal, Decimal, Decimal]:
@@ -740,13 +849,13 @@ class CommandProcessor:
         discounted = amount
 
         if admission.employee_referral and charge_head == "DOCTOR":
-            discounted, disc_amt = self.discount_service.apply_employee_referral_discount(
-                amount, True, charge_head
+            _, disc_amt = self.discount_service.apply_employee_referral_discount(
+                amount, True, "DOCTOR_VISIT"
             )
             discount_amt = disc_amt
             discount_pct = Decimal("15.00")
 
-        return discounted, discount_pct, discount_amt
+        return amount, discount_pct, discount_amt
 
     # =========================================================================
     # COMMAND HANDLERS
@@ -759,13 +868,28 @@ class CommandProcessor:
                                 f"Command timestamp {parsed_command.timestamp} is earlier than previous command")
 
         self._last_timestamp = parsed_command.timestamp
+        current_time = parsed_command.timestamp
 
-        # Process bed days for this admission up to current command time
+        # Capture occupancy snapshots whose timestamp falls in
+        # [last_command_time, current_time). Bed state only changes at command
+        # times, so the state after the last processed command is valid
+        # throughout this interval (reservation releases up to each snapshot
+        # instant are applied inside _capture_occupancy_snapshot).
+        for snap_ts in sorted(self._occupancy_snapshot_times):
+            if snap_ts in self._occupancy_snapshot_captured:
+                continue
+            if (self._last_command_time is None or self._last_command_time <= snap_ts) and snap_ts < current_time:
+                self._capture_occupancy_snapshot(snap_ts)
+
+        # Internal timed events first (48h demand deadline, reservations,
+        # 7-day interim bills) so that a same-instant demand deadline sees the
+        # running bill without the same-instant bed day.
+        self.process_timed_events(current_time)
+
+        # Bed-day counting for this admission up to current command time.
         adm_id = parsed_command.admission_id
         if adm_id and adm_id in self.loader.admissions:
-            self._process_admission_bed_days(adm_id, parsed_command.timestamp)
-
-        self.process_timed_events(parsed_command.timestamp)
+            self._process_admission_bed_days(adm_id, current_time)
 
         handler = self._get_handler(parsed_command.command_type)
         if handler is None:
@@ -774,6 +898,14 @@ class CommandProcessor:
 
         result = handler(parsed_command)
         self._command_results.append(result)
+
+        # Capture a snapshot whose timestamp equals this command's timestamp,
+        # so it reflects the bed-state changes made by this command.
+        if (current_time in self._occupancy_snapshot_times
+                and current_time not in self._occupancy_snapshot_captured):
+            self._capture_occupancy_snapshot(current_time)
+
+        self._last_command_time = current_time
         return result
 
     def _get_handler(self, command_type: CommandType):
@@ -868,6 +1000,7 @@ class CommandProcessor:
                 adm_id, deposit_amount, parsed_command.timestamp, payment_mode
             )
             admission.deposits = deposit_amount
+            admission.deposits_before_discharge = deposit_amount
             admission.deposit_timestamp = parsed_command.timestamp
 
             bed_id = self._allocate_bed(adm_id, requested_category, admission.gender)
@@ -876,6 +1009,7 @@ class CommandProcessor:
                                     f"No available bed in category {requested_category}")
 
             bed = self.loader.beds[bed_id]
+            bed.hold_until = None
             bed.status = "OCCUPIED"
             bed.adm_id = adm_id
             bed.since_ts = parsed_command.timestamp
@@ -885,6 +1019,7 @@ class CommandProcessor:
             admission.admit_ts = parsed_command.timestamp
             admission.allocated_category = bed.category
             admission.allocated_bed_id = bed_id
+            self._bed_periods.setdefault(adm_id, []).append([parsed_command.timestamp, None, bed.category])
             admission.running_bill = Decimal("0.00")
 
             if admission.date_of_birth:
@@ -914,6 +1049,11 @@ class CommandProcessor:
 
     def _allocate_bed(self, adm_id: str, category: Category, gender: Gender) -> Optional[str]:
         """Allocate a bed for the given category, gender, and admission."""
+        # A bed reserved specifically for this admission takes priority.
+        for bed_id, bed in self.loader.beds.items():
+            if bed.category == category and bed.status == "RESERVED" and bed.adm_id == adm_id:
+                return bed_id
+
         available_beds = []
         for bed_id, bed in self.loader.beds.items():
             if bed.category == category and bed.is_available():
@@ -980,6 +1120,7 @@ class CommandProcessor:
             bed = self.loader.beds[bed_id]
             bed.status = "RESERVED"
             bed.adm_id = adm_id
+            bed.since_ts = parsed_command.timestamp
             bed.hold_until = planned_ts + timedelta(hours=6)
 
             self._bed_reservations[bed_id] = {
@@ -1069,6 +1210,10 @@ class CommandProcessor:
             new_bed.adm_id = adm_id
             new_bed.since_ts = parsed_command.timestamp
             new_bed.billing_category = target_category
+
+            # Close the current bed period and open a new one at transfer time
+            self._close_open_bed_period(adm_id, parsed_command.timestamp)
+            self._bed_periods.setdefault(adm_id, []).append([parsed_command.timestamp, None, target_category])
 
             self.transfer_service.record_transfer(
                 adm_id, parsed_command.timestamp, target_category, new_bed_id,
@@ -1165,6 +1310,10 @@ class CommandProcessor:
             new_bed.adm_id = adm_id
             new_bed.since_ts = parsed_command.timestamp
             new_bed.billing_category = target_category
+
+            # Close the current bed period and open a new one at step-down time
+            self._close_open_bed_period(adm_id, parsed_command.timestamp)
+            self._bed_periods.setdefault(adm_id, []).append([parsed_command.timestamp, None, target_category])
 
             self.transfer_service.record_step_down(
                 adm_id, parsed_command.timestamp, target_category, doctor_id
@@ -1269,7 +1418,7 @@ class CommandProcessor:
             if current_category == Category.ICU and doctor.is_intensivist:
                 base_amount = Decimal("0.00")
                 gross = Decimal("0.00")
-                multiplier = Decimal("1.00")
+                multiplier = current_category.visit_multiplier
             else:
                 multiplier = current_category.visit_multiplier
                 gross = round2(base_amount * multiplier)
@@ -1799,20 +1948,27 @@ class CommandProcessor:
             self.demand_service.record_deposit(
                 adm_id, amount, parsed_command.timestamp, payment_mode
             )
+            if admission.discharge_time is not None:
+                admission.settlement_after_discharge = round2(
+                    admission.settlement_after_discharge + amount)
+            else:
+                admission.deposits_before_discharge = round2(
+                    admission.deposits_before_discharge + amount)
             admission.deposits = round2(admission.deposits + amount)
 
             for demand in self.demand_service.demands:
-                if demand.admission_id == adm_id and demand.status == "OPEN":
-                    deposits_since = sum(
-                        d.amount for d in self.demand_service.deposits
-                        if d.admission_id == adm_id and d.timestamp >= demand.demand_ts
-                    )
-                    demand.deposits_since_demand = round2(deposits_since)
-                    demand.outstanding = round2(max(Decimal("0.00"), demand.demand_amount - deposits_since))
+                if demand.admission_id != adm_id:
+                    continue
+                deposits_since = sum(
+                    d.amount for d in self.demand_service.deposits
+                    if d.admission_id == adm_id and d.timestamp >= demand.demand_ts
+                )
+                demand.deposits_since_demand = round2(deposits_since)
+                demand.outstanding = round2(max(Decimal("0.00"), demand.demand_amount - deposits_since))
 
-                    if demand.outstanding == Decimal("0.00"):
-                        demand.status = "CLOSED"
-                        demand.status_ts = parsed_command.timestamp
+                if demand.status == "OPEN" and demand.outstanding == Decimal("0.00"):
+                    demand.status = "CLOSED"
+                    demand.status_ts = parsed_command.timestamp
 
             self._check_block_lift(adm_id, parsed_command.timestamp)
 
@@ -1867,13 +2023,13 @@ class CommandProcessor:
 
         interim_id = f"{adm_id}-IB{len([i for i in self._interim_bills if i.admission_id == adm_id]) + 1}"
 
-        locked_entries = [e for e in self._ledger_entries if e.locked_by_interim == interim_id]
-        gross_total = round2(sum(e.gross for e in locked_entries))
-        discount_total = round2(sum(e.discount_amt for e in locked_entries))
-        gst_total = round2(sum(e.gst_amt for e in locked_entries))
-        running_bill = round2(sum(e.net for e in locked_entries))
-
         admission = self.loader.admissions.get(adm_id)
+        all_locked = [e for e in adm_entries if e.locked_by_interim is not None]
+        gross_total = round2(sum(e.gross for e in all_locked))
+        discount_total = round2(sum(e.discount_amt for e in all_locked))
+        gst_total = round2(sum(e.gst_amt for e in all_locked))
+        running_bill = round2(admission.running_bill)
+
         deposits_to_date = admission.deposits if admission else Decimal("0.00")
         balance = round2(running_bill - deposits_to_date)
 
@@ -1948,9 +2104,9 @@ class CommandProcessor:
                     admission_id=adm_id,
                     timestamp=parsed_command.timestamp,
                     counting_ts=None,
-                    head="ADJ",
+                    head=target_entry.head,
                     item_code=target_entry.item_code,
-                    description=f"Correction: {reason}",
+                    description=f"ADJ EV-{target_entry.event_id} line {target_entry.line_no} locked by {target_entry.locked_by_interim}: qty {target_entry.qty}->{new_qty}",
                     category_at_event=target_entry.category_at_event,
                     qty=qty_diff,
                     base_amount=base_amount,
@@ -1963,11 +2119,14 @@ class CommandProcessor:
                 )
             else:
                 old_net = target_entry.net
+                old_qty = target_entry.qty
                 target_entry.qty = new_qty
                 target_entry.gross = round2(target_entry.base_amount * Decimal(str(new_qty)) * target_entry.multiplier)
                 target_entry.discount_amt = round2(target_entry.gross * target_entry.discount_pct / Decimal("100"))
-                target_entry.gst_amt = round2((target_entry.gross - target_entry.discount_amt) * Decimal("5.00") / Decimal("100"))
+                if target_entry.head == "BED":
+                    target_entry.gst_amt = round2((target_entry.gross - target_entry.discount_amt) * Decimal("5.00") / Decimal("100"))
                 target_entry.net = round2(target_entry.gross - target_entry.discount_amt + target_entry.gst_amt)
+                target_entry.description = f"corrected {parsed_command.timestamp.strftime('%Y-%m-%d %H:%M:%S')} qty {old_qty}->{new_qty}"
 
                 admission.running_bill = round2(admission.running_bill - old_net + target_entry.net)
 
@@ -2064,8 +2223,6 @@ class CommandProcessor:
             except ValueError:
                 order_issued_ts = parsed_command.timestamp
 
-            self._post_discharge_bed_day(admission, parsed_command.timestamp)
-
             admission.status = "DISCHARGED"
             admission.discharge_type = discharge_type
             admission.discharge_time = parsed_command.timestamp
@@ -2074,11 +2231,17 @@ class CommandProcessor:
             planned = order_issued_ts.date() < parsed_command.timestamp.date()
             admission.planned_discharge = planned
 
+            # Close the current bed period at discharge time
+            self._close_open_bed_period(adm_id, parsed_command.timestamp)
+
+            # Post discharge-day bed-day line (discharge_time/order_time now set)
+            self._post_discharge_bed_day(admission, parsed_command.timestamp)
+
             if admission.allocated_bed_id and admission.allocated_bed_id in self.loader.beds:
                 bed = self.loader.beds[admission.allocated_bed_id]
                 bed.status = "HOUSEKEEPING"
-                bed.adm_id = None
-                bed.since_ts = None
+                bed.since_ts = parsed_command.timestamp
+                bed.billing_category = None
 
             for demand in self.demand_service.demands:
                 if demand.admission_id == adm_id and demand.status == "OPEN":
@@ -2086,6 +2249,29 @@ class CommandProcessor:
                     demand.status_ts = parsed_command.timestamp
 
             self._check_block_lift(adm_id, parsed_command.timestamp, force=True)
+
+            # Package price line at discharge for completed (non-converted) packages (BR-06)
+            package = self._package_for(admission)
+            if package is not None and adm_id not in self._package_converted:
+                self._add_ledger_entry(
+                    admission_id=adm_id,
+                    timestamp=parsed_command.timestamp,
+                    counting_ts=None,
+                    head="PACKAGE",
+                    item_code=package.package_code,
+                    description="package price",
+                    category_at_event=package.package_category,
+                    qty=1,
+                    base_amount=package.package_price,
+                    multiplier=Decimal("1.00"),
+                    gross=package.package_price,
+                    discount_pct=Decimal("0.00"),
+                    discount_amt=Decimal("0.00"),
+                    gst_amt=Decimal("0.00"),
+                    net=package.package_price,
+                    event_id=self._generate_event_id(),
+                    skip_demand_check=True,
+                )
 
             self._calculate_final_bill(admission)
 
@@ -2105,13 +2291,14 @@ class CommandProcessor:
         count_date = discharge_time.date()
         counted_dates = self._bed_day_counted.setdefault(adm_id, set())
 
-        if count_date in counted_dates:
+        if adm_id in self._discharge_extra_posted:
             return
 
         should_count = False
         category = admission.allocated_category or admission.requested_category
 
-        if discharge_time.hour > self.EXTRA_DISCHARGE_HOUR:
+        if (discharge_time.hour, discharge_time.minute, discharge_time.second) > (
+                self.EXTRA_DISCHARGE_HOUR, 0, 0):
             should_count = True
         elif discharge_time.hour < self.EARLY_DISCHARGE_HOUR:
             if admission.discharge_order_time and admission.discharge_order_time.date() < discharge_time.date():
@@ -2188,7 +2375,7 @@ class CommandProcessor:
                 skip_demand_check=True,
             )
 
-            counted_dates.add(count_date)
+            self._discharge_extra_posted.add(adm_id)
 
     def finalize(self, end_time: datetime):
         """Post-process bed-day counting for all admissions after all commands.
@@ -2335,6 +2522,33 @@ class CommandProcessor:
                     if d.procedure_block_from is not None and d.procedure_block_to is None:
                         d.procedure_block_to = current_time
 
+    def _package_for(self, admission: Admission):
+        """Return the Package for an admission, or None."""
+        if not admission.package_code:
+            return None
+        return self.loader.packages.get(admission.package_code)
+
+    def _package_active(self, admission: Admission, package) -> bool:
+        """True if the admission is on an active (not yet converted) package."""
+        return package is not None and admission.adm_id not in self._package_converted
+
+    def _package_covered(self, admission: Admission, package, head: str,
+                         item_code: str, bed_day_number: Optional[int] = None) -> bool:
+        """BR-06: True if the line is covered by an active package."""
+        if not self._package_active(admission, package):
+            return False
+        if item_code in package.exclusions:
+            return False
+        if head in ("BED", "NURSING"):
+            if item_code.startswith("BED-ICU") or item_code.startswith("NUR-ICU"):
+                return True
+            return bed_day_number is not None and bed_day_number <= package.los_days
+        if head in ("PROCEDURE", "OT"):
+            return item_code in package.included_procedures
+        if head in package.covered_heads:
+            return True
+        return False
+
     def _convert_package(self, adm_id: str, package_code: str, conversion_time: datetime):
         """Convert package to itemized billing with REPRICE lines."""
         if adm_id in self._package_converted:
@@ -2345,52 +2559,58 @@ class CommandProcessor:
             return
 
         self._package_converted.add(adm_id)
+        admission = self.loader.admissions.get(adm_id)
+        if admission is not None:
+            admission.package_converted = True
 
-        covered_event_ids = []
+        # Collect this admission's package-covered entries (posted before conversion), in line order.
+        pkg_prefix = f"[PKG-{package_code}]"
+        covered_entries = []
         for entry in self._ledger_entries:
-            is_covered = False
-            if entry.head in package.covered_heads:
-                is_covered = True
-            elif entry.head in ("PROCEDURE", "OT") and entry.item_code in package.included_procedures:
-                is_covered = True
-
-            if is_covered and entry.item_code not in package.exclusions:
-                covered_event_ids.append(entry.item_code)
-
-        for event_id in covered_event_ids:
-            original = None
-            for entry in self._ledger_entries:
-                if entry.item_code == event_id:
-                    original = entry
-                    break
-
-            if original is None:
+            if entry.admission_id != adm_id:
                 continue
+            if entry.description.startswith(pkg_prefix):
+                covered_entries.append(entry)
 
-            current_category = original.category_at_event
-            base_amount = original.base_amount
-            multiplier = original.multiplier
-            repriced_gross = round2(base_amount * original.qty * multiplier)
+        for original in covered_entries:
+            # Full price that would have been charged without the package
+            if original.head == "BED":
+                full_base = original.category_at_event.daily_charge
+            elif original.head == "NURSING":
+                full_base = original.category_at_event.nursing_charge
+            elif original.head == "DOCTOR" and original.item_code == "ICU-ROUNDS":
+                full_base = self.ICU_ROUND_FEE
+            elif original.head == "DOCTOR":
+                doctor = self.loader.doctors.get(original.item_code)
+                full_base = doctor.visit_fee if doctor else Decimal("0.00")
+            else:
+                tariff = self.loader.tariffs.get(original.item_code)
+                full_base = tariff.base_rate if tariff else Decimal("0.00")
 
-            repriced_discount_pct = original.discount_pct
-            repriced_discount_amt = round2(repriced_gross * repriced_discount_pct / Decimal("100"))
-            repriced_gst_amt = round2((repriced_gross - repriced_discount_amt) * Decimal("5.00") / Decimal("100"))
-            repriced_net = round2(repriced_gross - repriced_discount_amt + repriced_gst_amt)
+            repriced_gross = round2(full_base * original.qty * Decimal("1.00"))
+
+            repriced_gst_amt = Decimal("0.00")
+            if original.head == "BED":
+                taxable = repriced_gross
+                if taxable > self.GST_THRESHOLD:
+                    repriced_gst_amt = round2(taxable * self.GST_RATE / Decimal("100"))
+
+            repriced_net = round2(repriced_gross + repriced_gst_amt)
 
             self._add_ledger_entry(
                 admission_id=adm_id,
                 timestamp=conversion_time,
                 counting_ts=original.counting_ts,
-                head="REPRICE",
+                head=original.head,
                 item_code=original.item_code,
-                description=f"[PKG-{package_code}] Repriced: {original.description}",
-                category_at_event=current_category,
+                description=f"REPRICE line {original.line_no}",
+                category_at_event=original.category_at_event,
                 qty=original.qty,
-                base_amount=base_amount,
-                multiplier=multiplier,
+                base_amount=full_base,
+                multiplier=Decimal("1.00"),
                 gross=repriced_gross,
-                discount_pct=repriced_discount_pct,
-                discount_amt=repriced_discount_amt,
+                discount_pct=Decimal("0.00"),
+                discount_amt=Decimal("0.00"),
                 gst_amt=repriced_gst_amt,
                 net=repriced_net,
             )
@@ -2399,7 +2619,8 @@ class CommandProcessor:
         """Calculate final bill for a discharged admission."""
         adm_id = admission.adm_id
 
-        total_charges = admission.running_bill
+        total_charges = round2(
+            sum(e.gross for e in self._ledger_entries if e.admission_id == adm_id))
 
         senior_discount = Decimal("0.00")
         employee_discount = Decimal("0.00")
@@ -2408,23 +2629,24 @@ class CommandProcessor:
         gst_total = Decimal("0.00")
 
         for entry in self._ledger_entries:
-            gst_total += entry.gst_amt
+            if entry.admission_id == adm_id:
+                gst_total += entry.gst_amt
 
         if admission.senior:
             # Senior discount on BED and NURSING
             for entry in self._ledger_entries:
-                if entry.head in ("BED", "NURSING"):
+                if entry.admission_id == adm_id and entry.head in ("BED", "NURSING"):
                     senior_discount += entry.discount_amt
 
         if admission.employee_referral:
             for entry in self._ledger_entries:
-                if entry.head == "DOCTOR":
+                if entry.admission_id == adm_id and entry.head == "DOCTOR":
                     employee_discount += entry.discount_amt
 
         if adm_id in self._charity_applied and admission.charity_pct > Decimal("0"):
             eligible_sum = Decimal("0.00")
             for entry in self._ledger_entries:
-                if entry.head not in ("PHARMACY", "CONSUMABLE"):
+                if entry.admission_id == adm_id and entry.head not in ("PHARMACY", "CONSUMABLE"):
                     eligible_sum += entry.gross - entry.discount_amt
             charity_discount = round2(eligible_sum * admission.charity_pct / Decimal("100"))
 

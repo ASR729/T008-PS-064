@@ -190,7 +190,7 @@ def write_final_bill(path: str, admission, entries) -> None:
     rounding = round0(net_before_rounding) - net_before_rounding
     final_bill = round0(net_before_rounding)
     
-    balance_due = round2(final_bill - admission.deposits)
+    balance_due = round2(max(Decimal('0'), final_bill - admission.deposits))
     refund_due = round2(max(Decimal('0'), admission.deposits - final_bill))
     
     if balance_due > Decimal('0'):
@@ -213,10 +213,18 @@ def write_final_bill(path: str, admission, entries) -> None:
         writer.writerow(['INFO', 'discharge_ts', admission.discharge_time.strftime('%Y-%m-%d %H:%M:%S')])
         writer.writerow(['INFO', 'discharge_type', admission.discharge_type])
         writer.writerow(['INFO', 'planned_discharge', 'true' if planned else 'false'])
-        bed_days_count = sum(1 for e in entries if e.head == 'BED')
+        bed_days_count = sum(1 for e in entries if e.head == 'BED'
+                             and not e.description.startswith('REPRICE line'))
         writer.writerow(['INFO', 'bed_days', str(bed_days_count)])
         writer.writerow(['INFO', 'package_code', admission.package_code or ''])
-        writer.writerow(['INFO', 'package_status', 'NONE'])  # Simplified
+        if admission.package_code:
+            if admission.package_converted:
+                package_status = 'CONVERTED'
+            else:
+                package_status = 'COMPLETED'
+        else:
+            package_status = 'NONE'
+        writer.writerow(['INFO', 'package_status', package_status])
         writer.writerow(['HEAD', 'BED', format_decimal(bed_total)])
         writer.writerow(['HEAD', 'NURSING', format_decimal(nursing_total)])
         writer.writerow(['HEAD', 'DOCTOR', format_decimal(doctor_total)])
@@ -227,16 +235,21 @@ def write_final_bill(path: str, admission, entries) -> None:
         writer.writerow(['HEAD', 'INVESTIGATION', format_decimal(investigation_total)])
         writer.writerow(['HEAD', 'PACKAGE', format_decimal(package_total)])
         writer.writerow(['TOTAL', 'gross_charges', format_decimal(gross_charges)])
-        writer.writerow(['DISCOUNT', 'senior_bed_nursing', format_decimal(Decimal('0'))])  # Simplified
-        writer.writerow(['DISCOUNT', 'employee_doctor', format_decimal(Decimal('0'))])
-        writer.writerow(['DISCOUNT', 'charity', format_decimal(Decimal('0'))])
+        senior_bed_nursing = round2(sum(e.discount_amt for e in entries if e.head in ('BED', 'NURSING')))
+        employee_doctor = round2(sum(e.discount_amt for e in entries if e.head == 'DOCTOR'))
+        charity = round2(total_discounts - senior_bed_nursing - employee_doctor)
+        writer.writerow(['DISCOUNT', 'senior_bed_nursing', format_decimal(senior_bed_nursing)])
+        writer.writerow(['DISCOUNT', 'employee_doctor', format_decimal(employee_doctor)])
+        writer.writerow(['DISCOUNT', 'charity', format_decimal(charity)])
         writer.writerow(['TOTAL', 'total_discounts', format_decimal(total_discounts)])
         writer.writerow(['TAX', 'gst_room', format_decimal(gst_total)])
         writer.writerow(['TOTAL', 'net_before_rounding', format_decimal(net_before_rounding)])
         writer.writerow(['ROUNDING', 'rounding', format_decimal(rounding)])
         writer.writerow(['TOTAL', 'final_bill', format_decimal(final_bill)])
-        writer.writerow(['PAYMENT', 'deposits_before_discharge', format_decimal(admission.deposits)])
-        writer.writerow(['PAYMENT', 'settlement_after_discharge', format_decimal(Decimal('0'))])
+        writer.writerow(['PAYMENT', 'deposits_before_discharge',
+                          format_decimal(admission.deposits_before_discharge)])
+        writer.writerow(['PAYMENT', 'settlement_after_discharge',
+                          format_decimal(admission.settlement_after_discharge)])
         writer.writerow(['RESULT', 'balance_due', format_decimal(balance_due)])
         writer.writerow(['RESULT', 'refund_due', format_decimal(refund_due)])
         writer.writerow(['STATUS', 'bill_status', bill_status])

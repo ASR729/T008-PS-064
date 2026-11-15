@@ -193,12 +193,15 @@ class Admission:
     admitting_doctor_id: str
     package_code: Optional[str]
     employee_referral: bool
+    package_converted: bool = False
     senior: bool = False
     status: str = "PENDING"
     allocated_category: Optional[Category] = None
     allocated_bed_id: Optional[str] = None
     running_bill: Decimal = Decimal("0.00")
     deposits: Decimal = Decimal("0.00")
+    deposits_before_discharge: Decimal = Decimal("0.00")
+    settlement_after_discharge: Decimal = Decimal("0.00")
     balance_due: Decimal = Decimal("0.00")
     discharge_type: Optional[str] = None
     discharge_time: Optional[datetime] = None
