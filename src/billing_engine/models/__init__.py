@@ -233,7 +233,7 @@ class Transfer:
     """Category transfer for a patient."""
     admission_id: str
     transfer_time: datetime
-n        target_category: Category
+    target_category: Category
     target_bed_id: Optional[str]
     ordered_by_doctor_id: Optional[str]
     order_issued_ts: Optional[datetime]
@@ -353,6 +353,29 @@ class LedgerEntry:
     gst_amt: Decimal
     net: Decimal
     locked_by_interim: Optional[str]
+
+@dataclass
+class TariffItem:
+    """Tariff item for pricing."""
+    item_code: str
+    description: str
+    head: str
+    base_rate: Decimal
+    unit: str
+
+
+@dataclass
+class Package:
+    """Package configuration for bundled billing."""
+    package_code: str
+    package_name: str
+    package_category: Category
+    package_price: Decimal
+    los_days: int
+    included_procedures: List[str]
+    exclusions: List[str]
+    covered_heads: List[str]
+
 
 @dataclass
 class Rejection:

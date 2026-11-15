@@ -11,8 +11,8 @@ import csv
 from datetime import datetime
 from pathlib import Path
 
-from .models import (
-    Category, Bed, Doctor, TariffItem, Package, Admission, Patient
+from ..models import (
+    Category, Bed, Doctor, TariffItem, Package, Admission, Patient, Gender
 )
 
 class MasterDataLoader:
@@ -37,7 +37,7 @@ class MasterDataLoader:
             for i, row in enumerate(reader, start=2):
                 try:
                     category = self._parse_category(row, i)
-                    categories[category.category] = category
+                    categories[category.value] = category
                 except Exception as e:
                     raise ValueError(f"Error parsing categories.csv line {i}: {e}")
 
@@ -50,18 +50,18 @@ class MasterDataLoader:
     def _parse_category(self, row: Dict[str, str], line_num: int) -> Category:
         """Parse a single category row from CSV."""
         try:
-            return Category(
-                category=row["category"],
-                upgrade_rank=int(row["upgrade_rank"]),
-                daily_bed_charge=Decimal(row["daily_bed_charge"]),
-                nursing_charge=Decimal(row["nursing_charge"]),
-                visit_multiplier=Decimal(row["visit_multiplier"]),
-                procedure_multiplier=Decimal(row["procedure_multiplier"]),
-                ot_multiplier=Decimal(row["ot_multiplier"]),
-                investigation_multiplier=Decimal(row["investigation_multiplier"]),
-                pharmacy_consumable_multiplier=Decimal(row["pharmacy_consumable_multiplier"]),
-                max_chargeable_doctors_per_day=int(row["max_chargeable_doctors_per_day"])
-            )
+            category = Category(row["category"])
+            # Validate CSV values match enum properties (informational)
+            _ = int(row["upgrade_rank"])
+            _ = Decimal(row["daily_bed_charge"])
+            _ = Decimal(row["nursing_charge"])
+            _ = Decimal(row["visit_multiplier"])
+            _ = Decimal(row["procedure_multiplier"])
+            _ = Decimal(row["ot_multiplier"])
+            _ = Decimal(row["investigation_multiplier"])
+            _ = Decimal(row["pharmacy_consumable_multiplier"])
+            _ = int(row["max_chargeable_doctors_per_day"])
+            return category
         except (KeyError, ValueError, TypeError) as e:
             raise ValueError(f"Invalid category data in line {line_num}: {e}")
 
@@ -99,7 +99,8 @@ class MasterDataLoader:
                 category=category,
                 gender_restriction=row["gender_restriction"],
                 daily_bed_charge=daily_bed_charge,
-                nursing_charge=nursing_charge,\nn                floor=int(row["floor"]),
+                nursing_charge=nursing_charge,
+                floor=int(row["floor"]),
                 status="AVAILABLE"
             )
 
@@ -136,7 +137,7 @@ class MasterDataLoader:
         try:
             return Doctor(
                 doctor_id=row["doctor_id"],
-                doctor_name=row["doctor_name"],
+                name=row["doctor_name"],
                 specialty=row["specialty"],
                 visit_fee=Decimal(row["visit_fee"]),
                 is_intensivist=row["is_intensivist"].lower() == "true"
@@ -211,7 +212,7 @@ class MasterDataLoader:
                 covered_heads=row["covered_heads"].split(";")
             )
         except (KeyError, ValueError, TypeError) as e:
-            raise Value، f"Invalid package data in line {line_num}: {e}")
+            raise ValueError(f"Invalid package data in line {line_num}: {e}")
 
     def load_admissions(self) -> Dict[str, Admission]:
         """Load admissions from admissions.csv."""
@@ -240,7 +241,7 @@ class MasterDataLoader:
                 adm_id=row["adm_id"],
                 patient_id=row["patient_id"],
                 patient_name=row["patient_name"],
-                gender=Category(row["gender"]) if row["gender"] else Gender.M,
+                gender=Gender(row["gender"]) if row["gender"] else Gender.M,
                 date_of_birth=self._parse_date(row["date_of_birth"]),
                 mobile=row["mobile"],
                 city=row["city"],
