@@ -1,0 +1,6 @@
+category,upgrade_rank,daily_bed_charge,nursing_charge,visit_multiplier,procedure_multiplier,ot_multiplier,investigation_multiplier,pharmacy_consumable_multiplier,max_chargeable_doctors_per_day
+GENERAL,1,1200.00,400.00,1.00,1.00,1.00,1.00,1.00,2
+SEMI_PRIVATE,2,2500.00,600.00,1.25,1.25,1.25,1.20,1.00,0
+PRIVATE,3,5000.00,800.00,1.50,1.50,1.50,1.20,1.00,0
+DELUXE,4,5500.00,1000.00,2.00,2.00,2.00,1.20,1.00,0
+ICU,0,4800.00,2500.00,1.50,1.50,1.50,1.20,1.00,0

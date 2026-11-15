@@ -1,0 +1,33 @@
+section,item,value
+INFO,adm_id,ADM-0022
+INFO,admit_ts,2026-10-12 10:45:00
+INFO,discharge_ts,2026-10-15 09:00:00
+INFO,discharge_type,NORMAL
+INFO,planned_discharge,true
+INFO,bed_days,3
+INFO,package_code,
+INFO,package_status,NONE
+HEAD,BED,15000.00
+HEAD,NURSING,2400.00
+HEAD,DOCTOR,4800.00
+HEAD,PROCEDURE,0.00
+HEAD,OT,0.00
+HEAD,PHARMACY,902.30
+HEAD,CONSUMABLE,36.00
+HEAD,INVESTIGATION,2880.00
+HEAD,PACKAGE,0.00
+TOTAL,gross_charges,26018.30
+DISCOUNT,senior_bed_nursing,0.00
+DISCOUNT,employee_doctor,0.00
+DISCOUNT,charity,0.00
+TOTAL,total_discounts,0.00
+TAX,gst_room,0.00
+TOTAL,net_before_rounding,26018.30
+ROUNDING,rounding,-0.30
+TOTAL,final_bill,26018.00
+PAYMENT,deposits_before_discharge,61000.00
+PAYMENT,settlement_after_discharge,0.00
+RESULT,balance_due,0.00
+RESULT,refund_due,34982.00
+STATUS,bill_status,REFUND_DUE
+STATUS,admission_status,DISCHARGED

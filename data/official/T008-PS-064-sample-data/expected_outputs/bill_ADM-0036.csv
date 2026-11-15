@@ -1,0 +1,33 @@
+section,item,value
+INFO,adm_id,ADM-0036
+INFO,admit_ts,2026-10-24 19:10:00
+INFO,discharge_ts,2026-10-27 08:30:00
+INFO,discharge_type,LAMA
+INFO,planned_discharge,false
+INFO,bed_days,3
+INFO,package_code,
+INFO,package_status,NONE
+HEAD,BED,3600.00
+HEAD,NURSING,1200.00
+HEAD,DOCTOR,3000.00
+HEAD,PROCEDURE,0.00
+HEAD,OT,0.00
+HEAD,PHARMACY,262.80
+HEAD,CONSUMABLE,1080.00
+HEAD,INVESTIGATION,0.00
+HEAD,PACKAGE,0.00
+TOTAL,gross_charges,9142.80
+DISCOUNT,senior_bed_nursing,0.00
+DISCOUNT,employee_doctor,0.00
+DISCOUNT,charity,0.00
+TOTAL,total_discounts,0.00
+TAX,gst_room,0.00
+TOTAL,net_before_rounding,9142.80
+ROUNDING,rounding,0.20
+TOTAL,final_bill,9143.00
+PAYMENT,deposits_before_discharge,17000.00
+PAYMENT,settlement_after_discharge,0.00
+RESULT,balance_due,0.00
+RESULT,refund_due,7857.00
+STATUS,bill_status,REFUND_DUE
+STATUS,admission_status,DISCHARGED

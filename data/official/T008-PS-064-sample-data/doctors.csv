@@ -1,0 +1,15 @@
+doctor_id,doctor_name,specialty,visit_fee,is_intensivist
+DOC-01,Dr. Ramesh Kulkarni,General Medicine,800.00,false
+DOC-02,Dr. Anitha Rao,General Medicine,800.00,false
+DOC-03,Dr. Suresh Hegde,Cardiology,1500.00,false
+DOC-04,Dr. Kavya Shetty,Orthopaedics,1200.00,false
+DOC-05,Dr. Mohammed Irfan,General Surgery,1200.00,false
+DOC-06,Dr. Lakshmi Iyer,Obstetrics and Gynaecology,1000.00,false
+DOC-07,Dr. Prakash Gowda,Neurology,1500.00,false
+DOC-08,Dr. Deepa Nair,Pulmonology,1200.00,false
+DOC-09,Dr. Venkatesh Murthy,Nephrology,1300.00,false
+DOC-10,Dr. Shruthi Patil,Gastroenterology,1300.00,false
+DOC-11,Dr. Arjun Menon,Critical Care,1500.00,true
+DOC-12,Dr. Fathima Sheikh,Critical Care,1500.00,true
+DOC-13,Dr. Girish Bhat,Anaesthesiology,1200.00,false
+DOC-14,Dr. Rekha Desai,Endocrinology,1000.00,false

@@ -1,0 +1,33 @@
+section,item,value
+INFO,adm_id,ADM-0026
+INFO,admit_ts,2026-10-15 07:00:00
+INFO,discharge_ts,2026-10-19 12:30:00
+INFO,discharge_type,NORMAL
+INFO,planned_discharge,true
+INFO,bed_days,5
+INFO,package_code,PKG-PTCA
+INFO,package_status,COMPLETED
+HEAD,BED,10000.00
+HEAD,NURSING,1600.00
+HEAD,DOCTOR,0.00
+HEAD,PROCEDURE,0.00
+HEAD,OT,0.00
+HEAD,PHARMACY,0.00
+HEAD,CONSUMABLE,29600.00
+HEAD,INVESTIGATION,0.00
+HEAD,PACKAGE,145000.00
+TOTAL,gross_charges,186200.00
+DISCOUNT,senior_bed_nursing,1160.00
+DISCOUNT,employee_doctor,0.00
+DISCOUNT,charity,0.00
+TOTAL,total_discounts,1160.00
+TAX,gst_room,0.00
+TOTAL,net_before_rounding,185040.00
+ROUNDING,rounding,0.00
+TOTAL,final_bill,185040.00
+PAYMENT,deposits_before_discharge,60000.00
+PAYMENT,settlement_after_discharge,125040.00
+RESULT,balance_due,0.00
+RESULT,refund_due,0.00
+STATUS,bill_status,SETTLED
+STATUS,admission_status,DISCHARGED

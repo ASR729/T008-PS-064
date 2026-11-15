@@ -1,0 +1,4 @@
+demand_id,adm_id,seq,demand_ts,trigger_line_no,running_bill,deposits_at_demand,threshold_80pct,charges_last_3_days,days_with_charges,avg_daily_charge,demand_amount,deposits_since_demand,outstanding,status,status_ts,procedure_block_from,procedure_block_to
+ADM-0023-TD1,ADM-0023,1,2026-10-14 08:00:00,8,17690.40,19600.00,15680.00,17690.40,2,8845.20,8900.00,115000.00,0.00,CLOSED,2026-10-16 18:00:00,,
+ADM-0023-TD2,ADM-0023,2,2026-10-16 08:00:00,,35410.40,24600.00,19680.00,25020.00,2,12510.00,12600.00,110000.00,0.00,CLOSED,2026-10-17 16:00:00,2026-10-16 08:00:00,2026-10-17 16:00:00
+ADM-0038-TD1,ADM-0038,1,2026-10-29 09:30:00,13,10124.80,12500.00,10000.00,7724.80,3,2574.93,2600.00,2600.00,0.00,CLOSED,2026-10-29 10:00:00,,

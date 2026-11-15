@@ -1,0 +1,81 @@
+item_code,description,head,base_rate,unit
+PRC-001,Central venous line insertion,PROCEDURE,6000.00,per_procedure
+PRC-002,Upper GI endoscopy,PROCEDURE,7500.00,per_procedure
+PRC-003,Colonoscopy,PROCEDURE,9000.00,per_procedure
+PRC-004,Fibreoptic bronchoscopy,PROCEDURE,9500.00,per_procedure
+PRC-005,Haemodialysis session,PROCEDURE,4500.00,per_procedure
+PRC-006,Blood transfusion (procedure charge),PROCEDURE,1500.00,per_procedure
+PRC-007,Lumbar puncture,PROCEDURE,3500.00,per_procedure
+PRC-008,Pleural tap (thoracentesis),PROCEDURE,4000.00,per_procedure
+PRC-009,Urinary catheterisation,PROCEDURE,800.00,per_procedure
+PRC-010,Coronary angiography,PROCEDURE,18000.00,per_procedure
+PRC-011,PTCA - coronary angioplasty,PROCEDURE,85000.00,per_procedure
+PRC-012,Laparoscopic cholecystectomy,PROCEDURE,45000.00,per_procedure
+PRC-013,Appendicectomy,PROCEDURE,35000.00,per_procedure
+PRC-014,Lower segment caesarean section,PROCEDURE,40000.00,per_procedure
+PRC-015,Total knee replacement (surgeon and team),PROCEDURE,120000.00,per_procedure
+PRC-016,Inguinal hernia repair (mesh),PROCEDURE,38000.00,per_procedure
+PRC-017,Endotracheal intubation and ventilator set-up,PROCEDURE,5000.00,per_procedure
+PRC-018,Major wound dressing,PROCEDURE,1200.00,per_procedure
+OT-MIN,Operation theatre - minor (per hour),OT,3000.00,per_hour
+OT-MAJ,Operation theatre - major (per hour),OT,6000.00,per_hour
+OT-SPL,Operation theatre - super-speciality (per hour),OT,9000.00,per_hour
+OT-CATH,Cardiac cath lab (per hour),OT,8000.00,per_hour
+INV-CBC,Complete blood count,INVESTIGATION,450.00,per_test
+INV-LFT,Liver function test,INVESTIGATION,900.00,per_test
+INV-RFT,Renal function test,INVESTIGATION,850.00,per_test
+INV-ELEC,Serum electrolytes,INVESTIGATION,650.00,per_test
+INV-ABG,Arterial blood gas,INVESTIGATION,1200.00,per_test
+INV-CRP,C-reactive protein,INVESTIGATION,700.00,per_test
+INV-TROP,Troponin I,INVESTIGATION,1800.00,per_test
+INV-XRAY,Chest X-ray,INVESTIGATION,600.00,per_test
+INV-USG,Ultrasound abdomen,INVESTIGATION,1800.00,per_test
+INV-CT,CT scan (plain),INVESTIGATION,4500.00,per_test
+INV-MRI,MRI brain,INVESTIGATION,8500.00,per_test
+INV-ECG,Electrocardiogram,INVESTIGATION,300.00,per_test
+INV-ECHO,2D echocardiogram,INVESTIGATION,2500.00,per_test
+INV-CULT,Blood culture and sensitivity,INVESTIGATION,1400.00,per_test
+INV-PTINR,Prothrombin time / INR,INVESTIGATION,500.00,per_test
+INV-HBA1C,HbA1c,INVESTIGATION,600.00,per_test
+INV-URINE,Urine routine,INVESTIGATION,250.00,per_test
+INV-LIPID,Lipid profile,INVESTIGATION,750.00,per_test
+PHM-001,Inj. Ceftriaxone 1 g vial,PHARMACY,62.40,per_unit
+PHM-002,Inj. Pantoprazole 40 mg vial,PHARMACY,54.00,per_unit
+PHM-003,Inj. Ondansetron 4 mg ampoule,PHARMACY,18.75,per_unit
+PHM-004,IV Normal Saline 500 ml,PHARMACY,35.20,per_unit
+PHM-005,IV Ringer Lactate 500 ml,PHARMACY,38.60,per_unit
+PHM-006,Tab. Paracetamol 650 mg,PHARMACY,2.10,per_unit
+PHM-007,Inj. Meropenem 1 g vial,PHARMACY,1450.00,per_unit
+PHM-008,Inj. Piperacillin-Tazobactam 4.5 g,PHARMACY,520.00,per_unit
+PHM-009,Inj. Enoxaparin 40 mg,PHARMACY,385.00,per_unit
+PHM-010,Inj. Heparin 5000 IU,PHARMACY,145.00,per_unit
+PHM-011,Inj. Human Actrapid insulin vial,PHARMACY,165.00,per_unit
+PHM-012,Inj. Noradrenaline 4 mg,PHARMACY,210.00,per_unit
+PHM-013,Inj. Furosemide 20 mg,PHARMACY,9.80,per_unit
+PHM-014,Tab. Amlodipine 5 mg,PHARMACY,3.20,per_unit
+PHM-015,Tab. Metformin 500 mg,PHARMACY,1.95,per_unit
+PHM-016,Inj. Tramadol 50 mg,PHARMACY,22.50,per_unit
+PHM-017,Inj. Tranexamic acid 500 mg,PHARMACY,48.00,per_unit
+PHM-018,Neb. Ipratropium-Levosalbutamol respule,PHARMACY,21.40,per_unit
+PHM-019,Inj. Hydrocortisone 100 mg,PHARMACY,42.75,per_unit
+PHM-020,Tab. Clopidogrel 75 mg,PHARMACY,6.80,per_unit
+PHM-021,Inj. Human Albumin 20% 100 ml,PHARMACY,4850.00,per_unit
+PHM-022,Syp. Lactulose 100 ml,PHARMACY,145.50,per_unit
+CON-001,IV cannula 18G,CONSUMABLE,95.00,per_unit
+CON-002,IV infusion set,CONSUMABLE,120.00,per_unit
+CON-003,Syringe 5 ml,CONSUMABLE,12.00,per_unit
+CON-004,Sterile gloves (pair),CONSUMABLE,18.50,per_unit
+CON-005,Foley urinary catheter,CONSUMABLE,210.00,per_unit
+CON-006,Urine drainage bag,CONSUMABLE,85.00,per_unit
+CON-007,Ryles tube,CONSUMABLE,140.00,per_unit
+CON-008,Oxygen mask with tubing,CONSUMABLE,230.00,per_unit
+CON-009,Surgical dressing pack,CONSUMABLE,360.00,per_unit
+CON-010,Suture kit,CONSUMABLE,680.00,per_unit
+CON-011,Central line kit,CONSUMABLE,4200.00,per_unit
+CON-012,Ventilator circuit (disposable),CONSUMABLE,3600.00,per_unit
+CON-013,Polypropylene hernia mesh,CONSUMABLE,6500.00,per_unit
+IMP-STENT,Drug-eluting coronary stent,CONSUMABLE,29600.00,per_unit
+IMP-KNEE,Total knee implant system,CONSUMABLE,54000.00,per_unit
+IMP-PLATE,Locking plate with screws,CONSUMABLE,18500.00,per_unit
+BLD-PRBC,Packed red blood cells (1 unit),CONSUMABLE,1850.00,per_unit
+BLD-FFP,Fresh frozen plasma (1 unit),CONSUMABLE,950.00,per_unit

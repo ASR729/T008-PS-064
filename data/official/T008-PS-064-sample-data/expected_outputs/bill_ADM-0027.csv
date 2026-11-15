@@ -1,0 +1,33 @@
+section,item,value
+INFO,adm_id,ADM-0027
+INFO,admit_ts,2026-10-17 08:30:00
+INFO,discharge_ts,2026-10-20 11:00:00
+INFO,discharge_type,NORMAL
+INFO,planned_discharge,true
+INFO,bed_days,3
+INFO,package_code,PKG-HERNIA
+INFO,package_status,CONVERTED
+HEAD,BED,3600.00
+HEAD,NURSING,1200.00
+HEAD,DOCTOR,3600.00
+HEAD,PROCEDURE,45500.00
+HEAD,OT,6000.00
+HEAD,PHARMACY,99.00
+HEAD,CONSUMABLE,6500.00
+HEAD,INVESTIGATION,450.00
+HEAD,PACKAGE,0.00
+TOTAL,gross_charges,66949.00
+DISCOUNT,senior_bed_nursing,0.00
+DISCOUNT,employee_doctor,0.00
+DISCOUNT,charity,0.00
+TOTAL,total_discounts,0.00
+TAX,gst_room,0.00
+TOTAL,net_before_rounding,66949.00
+ROUNDING,rounding,0.00
+TOTAL,final_bill,66949.00
+PAYMENT,deposits_before_discharge,90000.00
+PAYMENT,settlement_after_discharge,0.00
+RESULT,balance_due,0.00
+RESULT,refund_due,23051.00
+STATUS,bill_status,REFUND_DUE
+STATUS,admission_status,DISCHARGED
