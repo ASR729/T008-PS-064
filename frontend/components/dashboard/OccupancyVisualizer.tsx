@@ -1,10 +1,11 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { GlassCard } from "../ui/GlassCard";
 import { MOCK_BED_CATEGORIES } from "../../lib/mock-data";
 import { formatCurrency } from "../../lib/utils";
-import { Bed, Users, ShieldAlert, Sparkles } from "lucide-react";
+import { Bed, ShieldAlert, Layers, ArrowRight } from "lucide-react";
 
 export const OccupancyVisualizer: React.FC = () => {
   const totalBeds = MOCK_BED_CATEGORIES.reduce((acc, cat) => acc + cat.total, 0);
@@ -103,13 +104,24 @@ export const OccupancyVisualizer: React.FC = () => {
         </div>
       </div>
 
-      {/* Rules Notice Badge at Bottom */}
-      <div className="mt-5 pt-3.5 border-t border-white/[0.08] flex items-center justify-between text-[11px] text-[#7E90A8]">
+      {/* Rules Notice Badge & 3D Explorer Button at Bottom */}
+      <div className="mt-5 pt-3.5 border-t border-white/[0.08] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-[#7E90A8]">
         <div className="flex items-center gap-1.5">
           <ShieldAlert className="w-3.5 h-3.5 text-[#F5B942]" />
           <span>BR-02: Upgrade-Free window active for fallback bed allocations</span>
         </div>
-        <span className="font-mono text-[#22C58B]">{totalAvailable} Beds Ready</span>
+        <div className="flex items-center gap-3">
+          <span className="font-mono text-[#22C58B]">{totalAvailable} Beds Ready</span>
+          <span className="text-white/20">•</span>
+          <Link
+            href="/hospital"
+            className="inline-flex items-center gap-1 text-[#38D9F5] hover:underline font-semibold"
+          >
+            <Layers className="w-3 h-3" />
+            <span>Interactive 3D</span>
+            <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
       </div>
     </GlassCard>
   );

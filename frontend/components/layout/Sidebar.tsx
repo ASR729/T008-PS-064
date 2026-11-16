@@ -1,6 +1,8 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { cn } from "../../lib/utils";
 import { SidebarItem } from "./SidebarItem";
 import { MOCK_NAVIGATION } from "../../lib/mock-data";
@@ -34,18 +36,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
   onOpenRulesModal,
 }) => {
+  const router = useRouter();
   const { addToast } = useToast();
 
-  const handleNavClick = (item: { id: string; label: string; isComingSoon?: boolean }) => {
+  const handleNavClick = (item: {
+    id: string;
+    label: string;
+    isComingSoon?: boolean;
+    href: string;
+  }) => {
     if (item.isComingSoon) {
       addToast({
         title: `${item.label} Module`,
         description: `${item.label} is scheduled for subsequent development phases. Complete Phase 1 foundation is active.`,
         type: "info",
       });
+      return;
     }
     onSelectNav(item.id);
     onCloseMobile();
+    if (item.href && item.href.startsWith("/")) {
+      router.push(item.href);
+    }
   };
   return (
     <>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { AppShell } from "../components/layout/AppShell";
 import { WelcomeBanner } from "../components/dashboard/WelcomeBanner";
 import { MetricGrid } from "../components/dashboard/MetricGrid";
@@ -11,11 +12,10 @@ import { AdmissionsTable } from "../components/dashboard/AdmissionsTable";
 import { EngineRulesDrawer } from "../components/dashboard/EngineRulesDrawer";
 import { SimulateActionModal } from "../components/dashboard/SimulateActionModal";
 import { Tabs } from "../components/ui/Tabs";
-import { PageHeader } from "../components/layout/PageHeader";
+import { PageHeader } from "../components/layout/Breadcrumb";
 import { PrimaryButton, SecondaryButton } from "../components/ui/PrimaryButton";
 import { StatusBadge } from "../components/ui/StatusBadge";
-import { Sparkles, ShieldCheck, Download, Plus, Layers } from "lucide-react";
-import { useToast } from "../components/ui/Toast";
+import { ShieldCheck, Plus, Layers } from "lucide-react";
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -53,6 +53,14 @@ export default function DashboardPage() {
             }
             actions={
               <>
+                <Link href="/hospital">
+                  <SecondaryButton
+                    size="sm"
+                    icon={<Layers className="w-3.5 h-3.5 text-[#38D9F5]" />}
+                  >
+                    3D Hospital View
+                  </SecondaryButton>
+                </Link>
                 <SecondaryButton
                   size="sm"
                   onClick={() => setIsRulesDrawerOpen(true)}

@@ -15,9 +15,9 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "PS-064 | Hospital Inpatient Billing & Bed Management Engine",
+  title: "PS-064 | Hospital Patient & Bed Management",
   description:
-    "Futuristic healthcare operations, inpatient billing simulation, bed allocation, and financial reconciliation engine.",
+    "Hospital operations dashboard with patient records, bed management, 3D hospital visualization, and illustrative inpatient workflow data.",
 };
 
 export default function RootLayout({

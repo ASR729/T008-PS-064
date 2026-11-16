@@ -16,16 +16,18 @@ export interface AppShellProps {
   currentPageTitle?: string;
   breadcrumbs?: BreadcrumbItem[];
   onOpenRulesModal?: () => void;
+  initialActiveNav?: string;
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
   children,
   currentPageTitle = "Command Operations Dashboard",
   breadcrumbs = [{ label: "Operations" }, { label: "Command Center" }],
+  initialActiveNav = "dashboard",
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [activeNav, setActiveNav] = useState("dashboard");
+  const [activeNav, setActiveNav] = useState(initialActiveNav);
   const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
 
   // Keyboard shortcut for Cmd+K / Ctrl+K
